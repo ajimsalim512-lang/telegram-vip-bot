@@ -15,11 +15,8 @@ API_TOKEN = '8803139822:AAFNCLWVAnTGD3g3jg7aNDATiTSRiMAqGMo'
 CHANNEL_USERNAME = '@novaengine01'
 CHANNEL_LINK = 'https://t.me/novaengine01'
 
-# Aapke Injector App ka Firebase
 FIREBASE_URL = 'https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app'
 FIREBASE_AUTH = 'V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL'
-
-# Aapki APK file ka path
 APK_FILE_NAME = 'app.apk'
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -130,14 +127,17 @@ def start_cmd(message):
             return
 
         cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
+
         ref_by = user[1] if user else None
         if ref_by:
+            # FIX: Points update aur commit ko ek sath pakka kiya gaya hai
             cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
+            conn.commit()
             try:
                 bot.send_message(ref_by, "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
             except:
                 pass
-        conn.commit()
 
     send_dashboard(message.chat.id, user_id)
 
@@ -150,13 +150,14 @@ def verify_callback(call):
         u_data = cursor.fetchone()
         if u_data and u_data[0] == 0:
             cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
+            conn.commit()
             if u_data[1]:
                 cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (u_data[1],))
+                conn.commit()
                 try:
                     bot.send_message(u_data[1], "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
                 except:
                     pass
-            conn.commit()
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
@@ -171,7 +172,6 @@ def handle_menu_buttons(message):
     user_id = message.from_user.id
     txt = (message.text or "").strip()
 
-    # 1. GENERATE KEY BUTTON
     if "Generate Key" in txt:
         cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
         res = cursor.fetchone()
@@ -202,7 +202,6 @@ def handle_menu_buttons(message):
         bot.send_message(message.chat.id, f"⭐ Aapke Paas: <b>{user_points} Points</b>\nNeeche se apna validity plan select karein:", parse_mode="HTML", reply_markup=kb)
         return
 
-    # 2. HOW IT WORKS
     if "How it works" in txt:
         bot_info = bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
@@ -226,7 +225,6 @@ def handle_menu_buttons(message):
         bot.send_message(message.chat.id, guide_text, parse_mode="HTML")
         return
 
-    # 3. MY KEYS BUTTON
     if "My Keys" in txt:
         cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_verified = 1", (user_id,))
         total_refs = cursor.fetchone()[0]
@@ -257,12 +255,10 @@ def handle_menu_buttons(message):
         bot.send_message(message.chat.id, msg, parse_mode="HTML")
         return
 
-    # 4. REFRESH / MY LINK / REFERRALS
     if any(k in txt for k in ["Refresh", "My Link", "Referrals"]):
         send_dashboard(message.chat.id, user_id)
         return
 
-# --- KEY CLAIM & DIRECT APK FILE SEND ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith('claim_'))
 def process_claim(call):
     days = int(call.data.split('_')[1])
@@ -286,6 +282,8 @@ def process_claim(call):
         return
 
     cursor.execute("UPDATE users SET points = points - ? WHERE user_id = ?", (req_points, user_id))
+    conn.commit()
+
     now_str = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
     cursor.execute("INSERT INTO user_keys (user_id, key_value, plan_days, created_at) VALUES (?, ?, ?, ?)", (user_id, new_key, days, now_str))
     conn.commit()
@@ -318,7 +316,6 @@ def process_claim(call):
     else:
         bot.send_message(call.message.chat.id, f"📥 App Download karein: {CHANNEL_LINK}")
 
-# --- RENDER WEB SERVER (DUMMY PORT FOR 24/7 HOSTING) ---
 class SimpleServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -342,4 +339,4 @@ while True:
         time.sleep(2)
     except Exception as e:
         time.sleep(3)
-      
+        
