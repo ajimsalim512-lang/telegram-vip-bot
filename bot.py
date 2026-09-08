@@ -319,6 +319,20 @@ def process_claim(call):
     else:
         # Agar file folder me na ho toh channel link bhej dega
         bot.send_message(call.message.chat.id, f"📥 App Download karein: {CHANNEL_LINK}")
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class SimpleServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is Running 24/7!")
+
+def run_web_server():
+    server = HTTPServer(('0.0.0.0', 10000), SimpleServer)
+    server.serve_forever()
+
+threading.Thread(target=run_web_server, daemon=True).start()
 
 print("⚡ Bot 24/7 chalne ke liye ready hai...")
 bot.remove_webhook()
@@ -330,3 +344,4 @@ while True:
         time.sleep(2)
     except Exception as e:
         time.sleep(3)
+        
