@@ -12,12 +12,14 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # --- CONFIGURATION ---
 API_TOKEN = '8803139822:AAHfhop4b_z1gPS3OVIGES__ofpaoJ9-qOM'
-'
 CHANNEL_USERNAME = '@novaengine01'
 CHANNEL_LINK = 'https://t.me/novaengine01'
 
+# Aapke Injector App ka Firebase
 FIREBASE_URL = 'https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app'
 FIREBASE_AUTH = 'V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL'
+
+# Aapki APK file ka path
 APK_FILE_NAME = 'app.apk'
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -132,7 +134,6 @@ def start_cmd(message):
 
         ref_by = user[1] if user else None
         if ref_by:
-            # FIX: Points update aur commit ko ek sath pakka kiya gaya hai
             cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
             conn.commit()
             try:
@@ -340,4 +341,4 @@ while True:
         time.sleep(2)
     except Exception as e:
         time.sleep(3)
-        
+    
