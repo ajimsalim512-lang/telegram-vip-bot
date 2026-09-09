@@ -15,11 +15,11 @@ API_TOKEN = '8803139822:AAHfhop4b_z1gPS3OVIGES__ofpaoJ9-qOM'
 CHANNEL_USERNAME = '@novaengine01'
 CHANNEL_LINK = 'https://t.me/novaengine01'
 
-# Aapke Injector App ka Firebase
+# Firebase for Key Validation
 FIREBASE_URL = 'https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app'
 FIREBASE_AUTH = 'V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL'
 
-# Aapki APK file ka path
+# APK File Name
 APK_FILE_NAME = 'app.apk'
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -82,6 +82,8 @@ def get_main_keyboard():
 def send_dashboard(chat_id, user_id):
     try:
         bot_info = bot.get_me()
+        
+        # Fresh points fetch from database
         cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
         res = cursor.fetchone()
         points = res[0] if res else 0
@@ -115,13 +117,14 @@ def start_cmd(message):
 
     if not user:
         ref_by = int(args) if args.isdigit() and int(args) != user_id else None
-        cursor.execute("INSERT INTO users (user_id, referrer_id) VALUES (?, ?)", (user_id, ref_by))
+        cursor.execute("INSERT INTO users (user_id, referrer_id, is_verified) VALUES (?, ?, 0)", (user_id, ref_by))
         conn.commit()
-        is_verified = 0
-    else:
-        is_verified = user[0]
+        user = (0, ref_by)
 
-    if not is_verified:
+    is_verified = user[0]
+    ref_by = user[1]
+
+    if is_verified == 0:
         if not check_joined(user_id):
             kb = types.InlineKeyboardMarkup()
             kb.add(types.InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
@@ -129,10 +132,11 @@ def start_cmd(message):
             bot.reply_to(message, f"⚠️ Bot use karne ke liye pehle official channel join karein:\n{CHANNEL_LINK}", reply_markup=kb)
             return
 
+        # Mark user as verified
         cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
         conn.commit()
 
-        ref_by = user[1] if user else None
+        # Give point to referrer if exists
         if ref_by:
             cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
             conn.commit()
@@ -150,16 +154,20 @@ def verify_callback(call):
     if check_joined(user_id):
         cursor.execute("SELECT is_verified, referrer_id FROM users WHERE user_id = ?", (user_id,))
         u_data = cursor.fetchone()
+        
         if u_data and u_data[0] == 0:
             cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
             conn.commit()
-            if u_data[1]:
-                cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (u_data[1],))
+            
+            ref_by = u_data[1]
+            if ref_by:
+                cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
                 conn.commit()
                 try:
-                    bot.send_message(u_data[1], "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
+                    bot.send_message(ref_by, "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
                 except:
                     pass
+
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except:
@@ -318,7 +326,7 @@ def process_claim(call):
     else:
         bot.send_message(call.message.chat.id, f"📥 App Download karein: {CHANNEL_LINK}")
 
-# --- RENDER WEB SERVER (DUMMY PORT FOR 24/7 HOSTING) ---
+# --- RENDER 24/7 DUMMY PORT SERVER ---
 class SimpleServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -342,3 +350,4 @@ while True:
     except Exception as e:
         print(f"⚠️ Connection Error aaya, 5 second me restart ho raha hai: {e}")
         time.sleep(5)
+        
