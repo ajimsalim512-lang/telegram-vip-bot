@@ -406,11 +406,10 @@ def plans_keyboard():
 
 
 # =========================================================
-# DASHBOARD (AUTO-CREATE USER IF MISSING)
+# DASHBOARD
 # =========================================================
 
 def send_dashboard(message_or_user):
-    # Support both message object and direct user_id
     if hasattr(message_or_user, "from_user"):
         user_obj = message_or_user.from_user
         user_id = user_obj.id
@@ -501,7 +500,6 @@ def handle_text_buttons(message):
     user_id = message.from_user.id
     text = (message.text or "").strip()
 
-    # Ensure user exists in firebase to prevent any 'User data nahi mila' error
     create_user_if_missing(message.from_user)
 
     if not check_joined(user_id):
@@ -634,6 +632,31 @@ def ping_command(message):
 
 
 # =========================================================
+# AUTO-BROADCAST NOTIFICATION ON STARTUP (BOT FIXED 🎉)
+# =========================================================
+
+def send_startup_notification():
+    try:
+        time.sleep(5)  # Thoda wait taaki bot username load ho jaye
+        users = firebase_get("users")
+        if isinstance(users, dict):
+            print("Broadcasting 'Bot Fixed 🎉' notification to users...")
+            for uid, user_data in users.items():
+                if isinstance(user_data, dict) and user_data.get("notifications_enabled", True):
+                    try:
+                        bot.send_message(
+                            int(uid),
+                            "🎉 <b>Bot Fixed!</b>\n\nSari problems fix kar di gayi hain. Ab bot bilkul smooth kaam kar raha hai! 🚀",
+                            parse_mode="HTML"
+                        )
+                        time.sleep(0.05)  # Telegram rate limit se bachne ke liye
+                    except Exception:
+                        pass
+    except Exception as e:
+        print("Startup broadcast error:", e)
+
+
+# =========================================================
 # BOT INFO & POLLING
 # =========================================================
 
@@ -667,13 +690,16 @@ if __name__ == "__main__":
     print("Premium Key Referral Bot Starting...")
     print("================================")
 
-    # Start Flask Web Server for Render 24/7 Keeping
+    # 1. Start Flask Web Server for Render 24/7 Keeping
     threading.Thread(target=run_web_server, daemon=True).start()
     time.sleep(2)
 
-    # Load bot username for referral links
+    # 2. Load bot username for referral links
     load_bot_username()
 
-    # Start Bot Polling Loop
+    # 3. Start Background Startup Broadcast Worker
+    threading.Thread(target=send_startup_notification, daemon=True).start()
+
+    # 4. Start Bulletproof Bot Polling Loop
     start_bot()
-    
+        
