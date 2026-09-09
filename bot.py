@@ -486,7 +486,7 @@ def start_command(message):
         return
 
     reward_referrer_once(user_id)
-    send_dashboard(message, "🎉 <b>Verification Successful!</b>")
+    send_dashboard(message, "🎉 <b>Aapka bot taiyar hai keys generate karne ke liye!</b>")
 
 
 # =========================================================
@@ -509,7 +509,7 @@ def verify_callback(call):
 
     reward_referrer_once(user_id)
     bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
-    send_dashboard(call.message, "🎉 <b>Aapka bot taiyar hai key generate karne ke liye!</b> 🔥")
+    send_dashboard(call.message, "🎉 <b>Aapka bot taiyar hai keys generate karne ke liye!</b> 🔥")
 
 
 # =========================================================
@@ -687,13 +687,12 @@ def send_startup_notification():
         time.sleep(5)
         users = firebase_get("users")
         if isinstance(users, dict):
-            print("Broadcasting 'Bot Updated 🎉' notification to users...")
+            print("Broadcasting 'Bot Ready 🎉' notification to users...")
             for uid, user_data in users.items():
                 if isinstance(user_data, dict) and user_data.get("notifications_enabled", True):
                     try:
                         bot.send_message(
                             int(uid),
-                            "🎉 <b>Bot Updated & Optimized!</b>\n\n"
-                            "Naye features add kar diye gaye hain aur speed bhi fast kar di gayi hai! 🚀\n"
-                            "Aapka bot ab bilkul taiyar hai key generate karne ke liye! ✨",
-   
+                            "🎉 <b>Aapka bot ready hai keys generate karne ke liye!</b> ✨\n\n"
+                            "Sari updates ho chuki hain, ab aap apne points use karke keys bana sakte hain ya referral link share kar sakte hain! 🚀",
+  
