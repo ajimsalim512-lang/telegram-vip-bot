@@ -318,6 +318,7 @@ def process_claim(call):
     else:
         bot.send_message(call.message.chat.id, f"📥 App Download karein: {CHANNEL_LINK}")
 
+# --- RENDER WEB SERVER (DUMMY PORT FOR 24/7 HOSTING) ---
 class SimpleServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -331,14 +332,13 @@ def run_web_server():
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
+# --- 24/7 BULLETPROOF AUTO-RESTART POLLING LOOP ---
 print("⚡ Bot 24/7 chalne ke liye ready hai...")
 bot.remove_webhook()
 
 while True:
     try:
-        bot.polling(none_stop=True, timeout=60, long_polling_timeout=30)
-    except requests.exceptions.ReadTimeout:
-        time.sleep(2)
+        bot.polling(none_stop=True, interval=1, timeout=30, long_polling_timeout=20)
     except Exception as e:
-        time.sleep(3)
-    
+        print(f"⚠️ Connection Error aaya, 5 second me restart ho raha hai: {e}")
+        time.sleep(5)
