@@ -1,635 +1,357 @@
-import os
-import time
-import random
-import string
-import threading
-import logging
-from datetime import datetime, timezone
-
-import requests
 import telebot
 from telebot import types
-from flask import Flask, jsonify
+import sqlite3
+import random
+import string
+import requests
+import datetime
+import os
+import time
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# --- CONFIGURATION ---
+API_TOKEN = '8803139822:AAHfhop4b_z1gPS3OVIGES__ofpaoJ9-qOM'
+CHANNEL_USERNAME = '@novaengine01'
+CHANNEL_LINK = 'https://t.me/novaengine01'
 
-# =========================================================
-# CONFIG
-# =========================================================
+# Firebase for Key Validation
+FIREBASE_URL = 'https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app'
+FIREBASE_AUTH = 'V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL'
 
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN",
-    "8803139822:AAEYtk1w5AGhzbuCHUsFzGGRg8iW-rOGl0M"
-)
+# APK File Name
+APK_FILE_NAME = 'app.apk'
 
-FIREBASE_AUTH = os.getenv(
-    "FIREBASE_AUTH",
-    "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL"
-)
+bot = telebot.TeleBot(API_TOKEN)
+session = requests.Session()
 
-FIREBASE_URL = os.getenv(
-    "FIREBASE_URL",
-    "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app"
-).rstrip("/")
+# --- DATABASE SETUP ---
+conn = sqlite3.connect('referral_bot.db', check_same_thread=False)
+cursor = conn.cursor()
 
-CHANNEL_USERNAME = os.getenv(
-    "CHANNEL_USERNAME",
-    "@novaengine01"
-)
+# Default points 3 set kiye gaye hain
+cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    points INTEGER DEFAULT 3,
+    referrer_id INTEGER DEFAULT NULL,
+    is_verified INTEGER DEFAULT 0
+)''')
 
-CHANNEL_LINK = os.getenv(
-    "CHANNEL_LINK",
-    "https://t.me/novaengine01"
-)
+cursor.execute('''CREATE TABLE IF NOT EXISTS user_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    key_value TEXT,
+    plan_days INTEGER,
+    created_at TEXT
+)''')
+conn.commit()
 
-APP_DOWNLOAD_LINK = (
-    "https://t.me/memonxgaming/1060"
-)
+# Sabhi existing users ko bhi 3 points dene ke liye update query
+cursor.execute("UPDATE users SET points = 3 WHERE points < 3")
+conn.commit()
 
-ADMIN_IDS = {
-    int(x.strip())
-    for x in os.getenv(
-        "ADMIN_IDS", ""
-    ).split(",")
-    if x.strip().isdigit()
-}
+chars = string.ascii_uppercase + string.digits
+def generate_random_key():
+    return "DP-" + ''.join(random.choices(chars, k=6))
 
-
-# =========================================================
-# PLANS
-# =========================================================
-
-PLANS = {
-    "1": {
-        "name": "1 Day",
-        "days": 1,
-        "points": 3
-    },
-    "3": {
-        "name": "3 Days",
-        "days": 3,
-        "points": 6
-    },
-    "7": {
-        "name": "7 Days",
-        "days": 7,
-        "points": 10
-    },
-    "30": {
-        "name": "30 Days",
-        "days": 30,
-        "points": 25
+def save_key_to_firebase(key_name, days):
+    payload = {
+        "user": key_name,
+        "days": str(days),
+        "status": "active",
+        "devices": "1",
+        "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-}
-
-
-# =========================================================
-# LOGGING
-# =========================================================
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
-
-logger = logging.getLogger("premium-bot")
-
-
-# =========================================================
-# TELEGRAM BOT
-# =========================================================
-
-bot = telebot.TeleBot(
-    BOT_TOKEN,
-    parse_mode="HTML"
-)
-
-BOT_USERNAME = ""
-
-
-# =========================================================
-# FLASK (24/7 KEEP ALIVE SERVER FOR RENDER)
-# =========================================================
-
-app = Flask(__name__)
-
-
-@app.route("/")
-def home():
-    return "Premium Key Bot is running."
-
-
-@app.route("/health")
-def health():
-    return jsonify({
-        "status": "ok",
-        "bot": "running",
-        "time": datetime.now(timezone.utc).isoformat()
-    })
-
-
-@app.route("/ping")
-def ping():
-    return "pong"
-
-
-def run_web_server():
-    port = int(os.getenv("PORT", "10000"))
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False,
-        use_reloader=False
-    )
-
-
-# =========================================================
-# FIREBASE HELPERS
-# =========================================================
-
-def firebase_url(path=""):
-    path = path.strip("/")
-    if path:
-        url = f"{FIREBASE_URL}/{path}.json"
-    else:
-        url = f"{FIREBASE_URL}/.json"
-    return f"{url}?auth={FIREBASE_AUTH}"
-
-
-def firebase_get(path=""):
+    url = f"{FIREBASE_URL}/user/{key_name}.json?auth={FIREBASE_AUTH}"
     try:
-        response = requests.get(firebase_url(path), timeout=15)
-        if response.status_code != 200:
-            return None
-        return response.json()
+        res = session.put(url, json=payload, timeout=5)
+        return res.status_code == 200
     except Exception as e:
-        logger.error("Firebase GET exception: %s", e)
-        return None
-
-
-def firebase_put(path, data):
-    try:
-        response = requests.put(firebase_url(path), json=data, timeout=15)
-        return response.status_code in (200, 201)
-    except Exception as e:
-        logger.error("Firebase PUT exception: %s", e)
+        print("Firebase Error:", e)
         return False
-
-
-def firebase_patch(path, data):
-    try:
-        response = requests.patch(firebase_url(path), json=data, timeout=15)
-        return response.status_code in (200, 201)
-    except Exception as e:
-        logger.error("Firebase PATCH exception: %s", e)
-        return False
-
-
-# =========================================================
-# USER HELPERS
-# =========================================================
-
-def user_path(user_id):
-    return f"users/{user_id}"
-
-
-def get_user(user_id):
-    data = firebase_get(user_path(user_id))
-    if isinstance(data, dict):
-        return data
-    return None
-
-
-def create_user_if_missing(telegram_user, referrer_id=None):
-    user_id = telegram_user.id
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    old = get_user(user_id)
-
-    if old is None:
-        ref = None
-        if referrer_id and int(referrer_id) != user_id:
-            ref = int(referrer_id)
-
-        data = {
-            "id": user_id,
-            "username": telegram_user.username or "",
-            "first_name": telegram_user.first_name or "",
-            "points": 0,
-            "referrals": 0,
-            "referrer_id": ref,
-            "started": True,
-            "notifications_enabled": True,
-            "created_at": now,
-            "last_seen": now,
-            "keys": {},
-            "referral_rewards": {}
-        }
-        firebase_put(user_path(user_id), data)
-        return data
-
-    patch = {
-        "username": telegram_user.username or "",
-        "first_name": telegram_user.first_name or "",
-        "last_seen": now,
-        "started": True
-    }
-
-    if referrer_id and int(referrer_id) != user_id and not old.get("referrer_id"):
-        patch["referrer_id"] = int(referrer_id)
-
-    firebase_patch(user_path(user_id), patch)
-    old.update(patch)
-    return old
-
-
-# =========================================================
-# MEMBERSHIP CHECK
-# =========================================================
 
 def check_joined(user_id):
     try:
-        member = bot.get_chat_member(CHANNEL_USERNAME, int(user_id))
-        return member.status in ("member", "administrator", "creator")
+        member = bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
+        return member.status in ['creator', 'administrator', 'member']
+    except Exception:
+        return True
+
+def get_main_keyboard():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row(types.KeyboardButton("🎁 Generate Key"), types.KeyboardButton("🔗 My Link"))
+    kb.row(types.KeyboardButton("👥 Referrals"), types.KeyboardButton("🔑 My Keys"))
+    kb.row(types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
+    return kb
+
+def send_dashboard(chat_id, user_id):
+    try:
+        bot_info = bot.get_me()
+        
+        cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
+        res = cursor.fetchone()
+        points = res[0] if res else 3
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_verified = 1", (user_id,))
+        total_refs = cursor.fetchone()[0]
+
+        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+
+        text = (
+            f"🏆 <b>Aapka Rewards Dashboard</b>\n\n"
+            f"⭐ Total Points: <b>{points}</b>\n"
+            f"👥 Verified Referrals: <b>{total_refs}</b>\n\n"
+            f"👇🏻 <b>Aapki Referral Link (Tap karke Copy karein):</b>\n"
+            f"<code>{ref_link}</code>\n\n"
+            f"📢 Is link ko doston ke sath share karein. Har ek dost ke join aur verify hone par <b>+1 Point</b> milega."
+        )
+        bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=get_main_keyboard())
     except Exception as e:
-        logger.error("Membership check error: %s", e)
-        return False
+        print("Dashboard error:", e)
 
-
-# =========================================================
-# REFERRAL REWARD
-# =========================================================
-
-def reward_referrer_once(referred_id):
-    referred = get_user(referred_id)
-    if not referred:
-        return False
-
-    referrer_id = referred.get("referrer_id")
-    if not referrer_id or int(referrer_id) == int(referred_id):
-        return False
-
-    referrer = get_user(referrer_id)
-    if not referrer:
-        return False
-
-    rewards = referrer.get("referral_rewards", {})
-    if str(referred_id) in rewards:
-        return False
-
-    old_points = int(referrer.get("points", 0))
-    old_referrals = int(referrer.get("referrals", 0))
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    firebase_patch(
-        user_path(referrer_id),
-        {
-            "points": old_points + 1,
-            "referrals": old_referrals + 1,
-            f"referral_rewards/{referred_id}": {
-                "rewarded_at": now
-            }
-        }
-    )
-    return True
-
-
-# =========================================================
-# KEY GENERATOR
-# =========================================================
-
-def generate_unique_key():
-    for _ in range(100):
-        chars = string.ascii_uppercase + string.digits
-        random_part = "".join(random.choices(chars, k=8))
-        key = f"DP-{random_part}"
-        if firebase_get(f"keys/{key}") is None:
-            return key
-    return None
-
-
-# =========================================================
-# CREATE KEY
-# =========================================================
-
-def create_key_for_user(user_id, plan_id):
-    if plan_id not in PLANS:
-        return False, "❌ Invalid plan."
-
-    user = get_user(user_id)
-    if not user:
-        return False, "❌ User not found."
-
-    plan = PLANS[plan_id]
-    required_points = plan["points"]
-    days = plan["days"]
-    points = int(user.get("points", 0))
-
-    if points < required_points:
-        return False, (
-            f"❌ <b>Insufficient Points</b>\n\n"
-            f"⭐ Your Points: <b>{points}</b>\n"
-            f"Required: <b>{required_points}</b>\n\n"
-            f"Invite more users to earn points."
-        )
-
-    key = generate_unique_key()
-    if not key:
-        return False, "❌ Key generate nahi ho saki."
-
-    new_points = points - required_points
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    key_data = {
-        "key": key,
-        "username": key,
-        "password": key,
-        "user_id": str(user_id),
-        "days": days,
-        "status": "active",
-        "devices": 1,
-        "created_at": now
-    }
-
-    if not firebase_put(f"keys/{key}", key_data):
-        return False, "❌ Firebase error."
-
-    firebase_patch(
-        user_path(user_id),
-        {
-            "points": new_points,
-            f"keys/{key}": key_data,
-            "last_key": key,
-            "last_key_at": now
-        }
-    )
-    return True, key_data
-
-
-# =========================================================
-# KEYBOARDS
-# =========================================================
-
-def main_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("🔑 Generate Key", callback_data="plans"),
-        types.InlineKeyboardButton("🔗 My Link", callback_data="my_link")
-    )
-    markup.add(
-        types.InlineKeyboardButton("👥 Referrals", callback_data="referrals"),
-        types.InlineKeyboardButton("🔐 My Keys", callback_data="my_keys")
-    )
-    markup.add(
-        types.InlineKeyboardButton("🔄 Refresh", callback_data="refresh"),
-        types.InlineKeyboardButton("ℹ️ How It Works", callback_data="how")
-    )
-    return markup
-
-
-def join_keyboard():
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
-    markup.add(types.InlineKeyboardButton("✅ Verify", callback_data="verify"))
-    return markup
-
-
-def plans_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for plan_id, plan in PLANS.items():
-        markup.add(
-            types.InlineKeyboardButton(
-                f"{plan['name']} - ⭐ {plan['points']}",
-                callback_data=f"generate:{plan_id}"
-            )
-        )
-    markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="refresh"))
-    return markup
-
-
-# =========================================================
-# DASHBOARD
-# =========================================================
-
-def send_dashboard(user_id):
-    user = get_user(user_id)
-    if not user:
-        bot.send_message(user_id, "❌ User data nahi mila.")
-        return
-
-    points = int(user.get("points", 0))
-    referrals = int(user.get("referrals", 0))
-
-    bot.send_message(
-        user_id,
-        f"🎮 <b>Premium Key Bot</b>\n\n"
-        f"⭐ Points: <b>{points}</b>\n"
-        f"👥 Referrals: <b>{referrals}</b>\n\n"
-        f"🔑 Points se premium key generate karo.\n\n"
-        f"📱 App:\n{APP_DOWNLOAD_LINK}",
-        parse_mode="HTML",
-        reply_markup=main_keyboard()
-    )
-
-
-# =========================================================
-# /START COMMAND
-# =========================================================
-
-@bot.message_handler(commands=["start"])
-def start_command(message):
+# --- START COMMAND ---
+@bot.message_handler(commands=['start'])
+def start_cmd(message):
     user_id = message.from_user.id
-    first_name = message.from_user.first_name or ""
+    parts = message.text.split()
+    args = parts[1] if len(parts) > 1 else ""
 
-    args = message.text.split()
-    referrer_id = None
-    if len(args) > 1 and args[1].isdigit():
-        referrer_id = args[1]
+    cursor.execute("SELECT is_verified, referrer_id FROM users WHERE user_id = ?", (user_id,))
+    user = cursor.fetchone()
 
-    create_user_if_missing(message.from_user, referrer_id)
+    if not user:
+        ref_by = int(args) if args.isdigit() and int(args) != user_id else None
+        # Naye user ko shuruat me hi 3 points diye ja rahe hain
+        cursor.execute("INSERT INTO users (user_id, points, referrer_id, is_verified) VALUES (?, 3, ?, 0)", (user_id, ref_by))
+        conn.commit()
+        user = (0, ref_by)
 
-    if not check_joined(user_id):
-        bot.send_message(
-            user_id,
-            f"👋 <b>Welcome {first_name}!</b>\n\n"
-            f"Bot use karne ke liye pehle official channel join karo.\n\n"
-            f"👇 Join karne ke baad <b>Verify</b> dabao.",
-            parse_mode="HTML",
-            reply_markup=join_keyboard()
-        )
-        return
+    is_verified = user[0]
+    ref_by = user[1]
 
-    reward_referrer_once(user_id)
-    send_dashboard(user_id)
+    if is_verified == 0:
+        if not check_joined(user_id):
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
+            kb.add(types.InlineKeyboardButton("✅ Verify / Check", callback_data="check_join"))
+            bot.reply_to(message, f"⚠️ Bot use karne ke liye pehle official channel join karein:\n{CHANNEL_LINK}", reply_markup=kb)
+            return
 
+        cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
 
-# =========================================================
-# VERIFY CALLBACK
-# =========================================================
+        if ref_by:
+            cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
+            conn.commit()
+            try:
+                bot.send_message(ref_by, "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
+            except:
+                pass
 
-@bot.callback_query_handler(func=lambda call: call.data == "verify")
+    send_dashboard(message.chat.id, user_id)
+
+# --- VERIFY CALLBACK ---
+@bot.callback_query_handler(func=lambda call: call.data == 'check_join')
 def verify_callback(call):
     user_id = call.from_user.id
-    bot.answer_callback_query(call.id)
+    if check_joined(user_id):
+        cursor.execute("SELECT is_verified, referrer_id FROM users WHERE user_id = ?", (user_id,))
+        u_data = cursor.fetchone()
+        
+        if u_data and u_data[0] == 0:
+            cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
+            conn.commit()
+            
+            ref_by = u_data[1]
+            if ref_by:
+                cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
+                conn.commit()
+                try:
+                    bot.send_message(ref_by, "🎉 Badhai ho! Ek naye dost ne aapki link se join kiya. Aapko +1 point mila.")
+                except:
+                    pass
 
-    if not check_joined(user_id):
-        bot.send_message(
-            user_id,
-            "❌ <b>Verification Failed</b>\n\nAapne abhi channel join nahi kiya.",
-            parse_mode="HTML",
-            reply_markup=join_keyboard()
-        )
-        return
-
-    reward_referrer_once(user_id)
-    bot.send_message(user_id, "✅ Verification successful!")
-    send_dashboard(user_id)
-
-
-# =========================================================
-# CALLBACK HANDLER
-# =========================================================
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    user_id = call.from_user.id
-    data = call.data
-    bot.answer_callback_query(call.id)
-
-    if data == "my_link":
-        link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
-        bot.send_message(
-            user_id,
-            f"🔗 <b>Your Referral Link</b>\n\n<code>{link}</code>\n\n👥 Har verified referral par:\n<b>+1 Point</b>",
-            parse_mode="HTML",
-            reply_markup=main_keyboard()
-        )
-        return
-
-    if data == "referrals":
-        user = get_user(user_id)
-        points = int(user.get("points", 0))
-        referrals = int(user.get("referrals", 0))
-        bot.send_message(
-            user_id,
-            f"👥 <b>Your Referrals</b>\n\n👤 Referrals: <b>{referrals}</b>\n⭐ Points: <b>{points}</b>",
-            parse_mode="HTML",
-            reply_markup=main_keyboard()
-        )
-        return
-
-    if data == "my_keys":
-        user = get_user(user_id)
-        keys = user.get("keys", {})
-        if not keys:
-            bot.send_message(user_id, "📭 Abhi koi key nahi hai.", reply_markup=main_keyboard())
-            return
-
-        text = "🔐 <b>Your Keys</b>\n\n"
-        items = list(keys.items())
-        items.reverse()
-        for key, info in items[:20]:
-            text += f"🔑 <code>{key}</code>\n⏳ {info.get('days', '?')} Days\n📅 {info.get('created_at', '-')}\n\n"
-
-        bot.send_message(user_id, text, parse_mode="HTML", reply_markup=main_keyboard())
-        return
-
-    if data == "refresh":
-        send_dashboard(user_id)
-        return
-
-    if data == "plans":
-        bot.send_message(
-            user_id,
-            "🛒 <b>Premium Plans</b>\n\n1 Day = ⭐ 3 Points\n3 Days = ⭐ 6 Points\n7 Days = ⭐ 10 Points\n30 Days = ⭐ 25 Points\n\n👇 Plan select karo:",
-            parse_mode="HTML",
-            reply_markup=plans_keyboard()
-        )
-        return
-
-    if data == "how":
-        bot.send_message(
-            user_id,
-            "📖 <b>How It Works</b>\n\n1️⃣ Bot start karo.\n2️⃣ Official channel join karo.\n3️⃣ Verify dabao.\n4️⃣ Referral link share karo.\n5️⃣ Verified referral par +1 point.\n6️⃣ Points se premium key generate karo.",
-            parse_mode="HTML",
-            reply_markup=main_keyboard()
-        )
-        return
-
-    if data.startswith("generate:"):
-        plan_id = data.split(":", 1)[1]
-        if not check_joined(user_id):
-            bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
-            return
-
-        success, result = create_key_for_user(user_id, plan_id)
-        if not success:
-            bot.send_message(user_id, str(result), parse_mode="HTML", reply_markup=main_keyboard())
-            return
-
-        key_data = result
-        bot.send_message(
-            user_id,
-            f"🎉 <b>KEY GENERATED!</b>\n\n🔑 Key: <code>{key_data['key']}</code>\n⏳ Validity: <b>{key_data['days']} Days</b>\n\n📱 App:\n{APP_DOWNLOAD_LINK}",
-            parse_mode="HTML",
-            reply_markup=main_keyboard()
-        )
-        return
-
-
-# =========================================================
-# OTHER COMMANDS
-# =========================================================
-
-@bot.message_handler(commands=["help"])
-def help_command(message):
-    bot.send_message(message.chat.id, "📖 <b>Help</b>\n\n/start - Start bot", parse_mode="HTML", reply_markup=main_keyboard())
-
-
-@bot.message_handler(commands=["ping"])
-def ping_command(message):
-    bot.reply_to(message, "🏓 Pong! Bot is running.")
-
-
-# =========================================================
-# BOT INFO & POLLING
-# =========================================================
-
-def load_bot_username():
-    global BOT_USERNAME
-    try:
-        me = bot.get_me()
-        BOT_USERNAME = me.username or ""
-        print("Bot Username loaded:", BOT_USERNAME)
-    except Exception as e:
-        print("Could not get bot info:", e)
-
-
-def start_bot():
-    while True:
         try:
-            print("Starting Telegram polling...")
-            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except:
+            pass
+        send_dashboard(call.message.chat.id, user_id)
+    else:
+        bot.answer_callback_query(call.id, "❌ Aapne abhi tak channel join nahi kiya! Pehle join karein.", show_alert=True)
+
+# --- BUTTON HANDLERS ---
+@bot.message_handler(func=lambda m: True)
+def handle_menu_buttons(message):
+    user_id = message.from_user.id
+    txt = (message.text or "").strip()
+
+    if "Generate Key" in txt:
+        cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
+        res = cursor.fetchone()
+        user_points = res[0] if res else 3
+
+        if user_points < 3:
+            bot_info = bot.get_me()
+            ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+            
+            warning_msg = (
+                f"❌ <b>Aapke paas key generate karne ke liye poore points nahi hain!</b>\n\n"
+                f"⭐ Aapke Total Points: <b>{user_points}</b>\n"
+                f"🎯 Minimum Chahiye: <b>3 Points</b> (1 Day VIP Key ke liye)\n\n"
+                f"👇🏻 <b>Aapki Referral Link (Tap karke Copy karein):</b>\n"
+                f"<code>{ref_link}</code>\n\n"
+                f"💡 <i>Is link ko doston ko share karein. Jaise hi points ho jayenge, aap key generate kar sakenge.</i>"
+            )
+            bot.send_message(message.chat.id, warning_msg, parse_mode="HTML")
+            return
+
+        kb = types.InlineKeyboardMarkup(row_width=2)
+        kb.add(
+            types.InlineKeyboardButton("1 Day (3 pts)", callback_data="claim_1"),
+            types.InlineKeyboardButton("3 Days (6 pts)", callback_data="claim_3"),
+            types.InlineKeyboardButton("7 Days (10 pts)", callback_data="claim_7"),
+            types.InlineKeyboardButton("30 Days (25 pts)", callback_data="claim_30")
+        )
+        bot.send_message(message.chat.id, f"⭐ Aapke Paas: <b>{user_points} Points</b>\nNeeche se apna validity plan select karein:", parse_mode="HTML", reply_markup=kb)
+        return
+
+    if "How it works" in txt:
+        bot_info = bot.get_me()
+        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+
+        guide_text = (
+            "📖 <b>Bot Kaise Kaam Karta Hai? (Aasan Guide)</b>\n\n"
+            "<b>1️⃣ Points Kaise Kamayein?</b>\n"
+            "• Shuruat me har naye user ko <b>3 Points Free</b> milte hain!\n"
+            "• Apni referral link apne doston ko share karein.\n"
+            "• Jab aapka dost channel join karega, aapko <b>+1 Point</b> milega.\n\n"
+            "<b>2️⃣ VIP Key Points:</b>\n"
+            "• 1 Day Key = <b>3 Points</b>\n"
+            "• 3 Days Key = <b>6 Points</b>\n"
+            "• 7 Days Key = <b>10 Points</b>\n"
+            "• 30 Days Key = <b>25 Points</b>\n\n"
+            "<b>3️⃣ App Me Login Kaise Karein?</b>\n"
+            "• Key generate hone par bot aapko APK file aur Key dega.\n"
+            "• App open karein, <b>Username</b> me wahi Key dalein aur <b>Password</b> me bhi wahi Key dalein!\n\n"
+            "👇🏻 <b>Aapki Referral Link (Tap karke Copy karein):</b>\n"
+            f"<code>{ref_link}</code>"
+        )
+        bot.send_message(message.chat.id, guide_text, parse_mode="HTML")
+        return
+
+    if "My Keys" in txt:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_verified = 1", (user_id,))
+        total_refs = cursor.fetchone()[0]
+
+        cursor.execute("SELECT key_value, plan_days, created_at FROM user_keys WHERE user_id = ? ORDER BY id DESC LIMIT 10", (user_id,))
+        rows = cursor.fetchall()
+
+        if not rows:
+            bot.send_message(
+                message.chat.id, 
+                f"📊 <b>Aapke Total Referrals:</b> {total_refs}\n\n"
+                f"❌ Aapne abhi tak koi key generate nahi ki hai.\n"
+                f"Points use karne ke liye <b>🎁 Generate Key</b> par tap karein.", 
+                parse_mode="HTML"
+            )
+            return
+
+        keys_list = ""
+        for idx, r in enumerate(rows, 1):
+            keys_list += f"{idx}. Key: <code>{r[0]}</code>\n   Plan: <b>{r[1]} Days</b> | Date: {r[2]}\n\n"
+
+        msg = (
+            f"🔑 <b>Aapki Generated Keys:</b>\n"
+            f"👥 <b>Total Verified Referrals:</b> {total_refs}\n\n"
+            f"{keys_list}"
+            f"⚠️ <i>Login note: App me <b>Username</b> aur <b>Password</b> dono jagah ye Key hi daalni hai.</i>"
+        )
+        bot.send_message(message.chat.id, msg, parse_mode="HTML")
+        return
+
+    if any(k in txt for k in ["Refresh", "My Link", "Referrals"]):
+        send_dashboard(message.chat.id, user_id)
+        return
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('claim_'))
+def process_claim(call):
+    days = int(call.data.split('_')[1])
+    costs = {1: 3, 3: 6, 7: 10, 30: 25}
+    req_points = costs.get(days, 3)
+    user_id = call.from_user.id
+
+    cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    points = res[0] if res else 3
+
+    if points < req_points:
+        bot.answer_callback_query(call.id, f"❌ Points kam hain! Chahiye: {req_points} Points (Aapke paas hain: {points})", show_alert=True)
+        return
+
+    new_key = generate_random_key()
+    saved = save_key_to_firebase(new_key, days)
+
+    if not saved:
+        bot.answer_callback_query(call.id, "⚠️ Database connection error, dobara try karein!", show_alert=True)
+        return
+
+    cursor.execute("UPDATE users SET points = points - ? WHERE user_id = ?", (req_points, user_id))
+    conn.commit()
+
+    now_str = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    cursor.execute("INSERT INTO user_keys (user_id, key_value, plan_days, created_at) VALUES (?, ?, ?, ?)", (user_id, new_key, days, now_str))
+    conn.commit()
+
+    reply_text = (
+        f"🎉 <b>VIP Key Successfully Generate Ho Gayi!</b>\n\n"
+        f"📅 Validity: <b>{days} Days</b>\n\n"
+        f"👇🏻 <b>Aapki Key (Tap karke Copy karein):</b>\n"
+        f"<code>{new_key}</code>\n\n"
+        f"📝 <b>App Login Instruction:</b>\n"
+        f"• <b>Username:</b> <code>{new_key}</code>\n"
+        f"• <b>Password:</b> <code>{new_key}</code>\n\n"
+        f"<i>(Dono jagah yahi same key paste karke Login karein)</i>\n\n"
+        f"📦 <i>Neeche aapki App APK file bheji ja rahi hai...</i>"
+    )
+    bot.send_message(call.message.chat.id, reply_text, parse_mode="HTML")
+    bot.answer_callback_query(call.id)
+
+    if os.path.exists(APK_FILE_NAME):
+        try:
+            with open(APK_FILE_NAME, 'rb') as apk:
+                bot.send_document(
+                    call.message.chat.id, 
+                    apk, 
+                    caption=f"📲 <b>Carrom VIP Injector App</b>\n🔑 Key: <code>{new_key}</code>", 
+                    parse_mode="HTML"
+                )
         except Exception as e:
-            print("Polling crashed:", e)
-            print("Restarting in 5 seconds...")
-            time.sleep(5)
+            print("File sending error:", e)
+    else:
+        bot.send_message(call.message.chat.id, f"📥 App Download karein: {CHANNEL_LINK}")
 
+# --- RENDER 24/7 DUMMY PORT SERVER ---
+class SimpleServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is Running 24/7!")
 
-# =========================================================
-# MAIN EXECUTION
-# =========================================================
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleServer)
+    server.serve_forever()
 
-if __name__ == "__main__":
-    print("================================")
-    print("Premium Key Referral Bot Starting...")
-    print("================================")
+threading.Thread(target=run_web_server, daemon=True).start()
 
-    # Start Flask Web Server for Render 24/7 Keeping
-    threading.Thread(target=run_web_server, daemon=True).start()
-    time.sleep(2)
+# --- 24/7 BULLETPROOF AUTO-RESTART POLLING LOOP ---
+print("⚡ Bot 24/7 chalne ke liye ready hai...")
+bot.remove_webhook()
 
-    # Load bot username for referral links
-    load_bot_username()
-
-    # Start Bot Polling Loop
-    start_bot()
+while True:
+    try:
+        bot.polling(none_stop=True, interval=1, timeout=30, long_polling_timeout=20)
+    except Exception as e:
+        print(f"⚠️ Connection Error aaya, 5 second me restart ho raha hai: {e}")
+        time.sleep(5)
         
