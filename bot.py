@@ -290,7 +290,6 @@ def reward_referrer_once(referred_id):
         }
     )
 
-    # Send automatic notification to referrer about new successful referral
     try:
         bot.send_message(
             int(referrer_id),
@@ -341,7 +340,7 @@ def create_key_for_user(user_id, plan_id):
             f"❌ <b>Insufficient Points</b>\n\n"
             f"⭐ Your Points: <b>{points}</b>\n"
             f"Required: <b>{required_points}</b>\n\n"
-            f"💡 Aur points kamane ke liye apna Referral Link doston ke sath share karein!"
+            f"💡 Aur points kamane ke liye apna Referral Link share karein!"
         )
 
     key = generate_unique_key()
@@ -385,7 +384,7 @@ def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(
         types.KeyboardButton("🎁 Generate Key"),
-        types.KeyboardButton("🛒 Buy Direct")
+        types.KeyboardButton("💎 Aim AI Panel")
     )
     markup.row(
         types.KeyboardButton("🔗 My Link"),
@@ -546,12 +545,17 @@ def handle_text_buttons(message):
         )
         return
 
-    if "Buy Direct" in text:
+    if "Aim AI Panel" in text:
         bot.send_message(
             user_id,
-            "💎 <b>Buy Aim AI Keys Directly</b>\n\n"
-            "❌ <b>Free not available</b> ❌❌\n\n"
-            "💬 Direct key kharadne ke liye owner se contact karein:\n"
+            "💎 <b>Buy Directly From Owner - Aim AI Panel</b>\n\n"
+            "✅ Generate unlimited keys for free directly\n"
+            "✅ Sell unlimited keys\n"
+            "✅ Panel with your name\n"
+            "✅ One time investment\n"
+            "✅ Price ₹300 only\n"
+            "❌ Free not available ❌❌\n\n"
+            "💬 <b>Buy from here / Contact Owner:</b>\n"
             "👉 <b>@Memonsalim</b>",
             parse_mode="HTML",
             reply_markup=main_keyboard()
@@ -683,15 +687,12 @@ def send_startup_notification():
         time.sleep(5)
         users = firebase_get("users")
         if isinstance(users, dict):
-            print("Broadcasting 'Bot Fixed 🎉' notification to users...")
+            print("Broadcasting 'Bot Updated 🎉' notification to users...")
             for uid, user_data in users.items():
                 if isinstance(user_data, dict) and user_data.get("notifications_enabled", True):
                     try:
                         bot.send_message(
                             int(uid),
-                            "🎉 <b>Bot Updated & Fixed!</b>\n\n"
+                            "🎉 <b>Bot Updated & Optimized!</b>\n\n"
                             "Naye features add kar diye gaye hain aur speed bhi fast kar di gayi hai! 🚀\n"
-                            "Aapka bot ab bilkul taiyar hai key generate karne ke liye! ✨",
-                            parse_mode="HTML"
-                        )
-                   
+                            "Aapka bot ab bilkul taiyar hai key
