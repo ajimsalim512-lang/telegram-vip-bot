@@ -129,7 +129,7 @@ BOT_USERNAME = ""
 
 
 # =========================================================
-# FLASK
+# FLASK (24/7 KEEP ALIVE SERVER FOR RENDER)
 # =========================================================
 
 app = Flask(__name__)
@@ -157,14 +157,12 @@ def ping():
 
 
 def run_web_server():
-
     port = int(
         os.getenv(
             "PORT",
             "10000"
         )
     )
-
     app.run(
         host="0.0.0.0",
         port=port,
@@ -178,9 +176,7 @@ def run_web_server():
 # =========================================================
 
 def firebase_url(path=""):
-
     path = path.strip("/")
-
     if path:
         url = f"{FIREBASE_URL}/{path}.json"
     else:
@@ -190,25 +186,20 @@ def firebase_url(path=""):
 
 
 def firebase_get(path=""):
-
     try:
         response = requests.get(
             firebase_url(path),
             timeout=15
         )
-
         if response.status_code != 200:
             return None
-
         return response.json()
-
     except Exception as e:
         logger.error("Firebase GET exception: %s", e)
         return None
 
 
 def firebase_put(path, data):
-
     try:
         response = requests.put(
             firebase_url(path),
@@ -222,7 +213,6 @@ def firebase_put(path, data):
 
 
 def firebase_patch(path, data):
-
     try:
         response = requests.patch(
             firebase_url(path),
@@ -254,7 +244,6 @@ def create_user_if_missing(
     telegram_user,
     referrer_id=None
 ):
-
     user_id = telegram_user.id
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     old = get_user(user_id)
@@ -302,7 +291,6 @@ def create_user_if_missing(
 # =========================================================
 
 def check_joined(user_id):
-
     try:
         member = bot.get_chat_member(
             CHANNEL_USERNAME,
@@ -324,7 +312,6 @@ def check_joined(user_id):
 # =========================================================
 
 def reward_referrer_once(referred_id):
-
     referred = get_user(referred_id)
     if not referred:
         return False
@@ -364,7 +351,6 @@ def reward_referrer_once(referred_id):
 # =========================================================
 
 def generate_unique_key():
-
     for _ in range(100):
         chars = string.ascii_uppercase + string.digits
         random_part = "".join(random.choices(chars, k=8))
@@ -382,7 +368,6 @@ def generate_unique_key():
 # =========================================================
 
 def create_key_for_user(user_id, plan_id):
-
     if plan_id not in PLANS:
         return False, "❌ Invalid plan."
 
@@ -704,7 +689,7 @@ def ping_command(message):
 
 
 # =========================================================
-# BOT INFO & POLLING
+# BOT INFO & BULLETPROOF POLLING
 # =========================================================
 
 def load_bot_username():
@@ -741,7 +726,7 @@ if __name__ == "__main__":
     print("Premium Key Referral Bot Starting...")
     print("================================")
 
-    # Start Flask Web Server for Render 24/7 keeping
+    # 1. Start Flask Web Server for Render 24/7 Keeping
     threading.Thread(
         target=run_web_server,
         daemon=True
@@ -749,11 +734,9 @@ if __name__ == "__main__":
 
     time.sleep(2)
 
-    # Load bot username for referral links
+    # 2. Load bot username for referral links
     load_bot_username()
 
-    # Start Bot Polling Loop
+    # 3. Start Bot Polling Loop
     start_bot()
-        
-
-
+    
