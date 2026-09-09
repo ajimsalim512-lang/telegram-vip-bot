@@ -4,7 +4,6 @@ import random
 import string
 import threading
 import logging
-import html
 from datetime import datetime, timezone
 
 import requests
@@ -54,10 +53,6 @@ ADMIN_IDS = {
     if x.strip().isdigit()
 }
 
-REENGAGE_AFTER_DAYS = 3
-REENGAGE_CHECK_HOURS = 6
-REENGAGE_BATCH_LIMIT = 100
-
 
 # =========================================================
 # PLANS
@@ -96,28 +91,11 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
 
-logger = logging.getLogger(
-    "premium-bot"
-)
+logger = logging.getLogger("premium-bot")
 
 
 # =========================================================
-# CONFIG CHECK
-# =========================================================
-
-if not BOT_TOKEN:
-    raise RuntimeError(
-        "BOT_TOKEN missing."
-    )
-
-if not FIREBASE_AUTH:
-    raise RuntimeError(
-        "FIREBASE_AUTH missing."
-    )
-
-
-# =========================================================
-# TELEGRAM
+# TELEGRAM BOT
 # =========================================================
 
 bot = telebot.TeleBot(
@@ -145,9 +123,7 @@ def health():
     return jsonify({
         "status": "ok",
         "bot": "running",
-        "time": datetime.now(
-            timezone.utc
-        ).isoformat()
+        "time": datetime.now(timezone.utc).isoformat()
     })
 
 
@@ -157,12 +133,7 @@ def ping():
 
 
 def run_web_server():
-    port = int(
-        os.getenv(
-            "PORT",
-            "10000"
-        )
-    )
+    port = int(os.getenv("PORT", "10000"))
     app.run(
         host="0.0.0.0",
         port=port,
@@ -181,16 +152,12 @@ def firebase_url(path=""):
         url = f"{FIREBASE_URL}/{path}.json"
     else:
         url = f"{FIREBASE_URL}/.json"
-
     return f"{url}?auth={FIREBASE_AUTH}"
 
 
 def firebase_get(path=""):
     try:
-        response = requests.get(
-            firebase_url(path),
-            timeout=15
-        )
+        response = requests.get(firebase_url(path), timeout=15)
         if response.status_code != 200:
             return None
         return response.json()
@@ -201,11 +168,7 @@ def firebase_get(path=""):
 
 def firebase_put(path, data):
     try:
-        response = requests.put(
-            firebase_url(path),
-            json=data,
-            timeout=15
-        )
+        response = requests.put(firebase_url(path), json=data, timeout=15)
         return response.status_code in (200, 201)
     except Exception as e:
         logger.error("Firebase PUT exception: %s", e)
@@ -214,11 +177,7 @@ def firebase_put(path, data):
 
 def firebase_patch(path, data):
     try:
-        response = requests.patch(
-            firebase_url(path),
-            json=data,
-            timeout=15
-        )
+        response = requests.patch(firebase_url(path), json=data, timeout=15)
         return response.status_code in (200, 201)
     except Exception as e:
         logger.error("Firebase PATCH exception: %s", e)
@@ -240,10 +199,7 @@ def get_user(user_id):
     return None
 
 
-def create_user_if_missing(
-    telegram_user,
-    referrer_id=None
-):
+def create_user_if_missing(telegram_user, referrer_id=None):
     user_id = telegram_user.id
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     old = get_user(user_id)
@@ -267,7 +223,6 @@ def create_user_if_missing(
             "keys": {},
             "referral_rewards": {}
         }
-
         firebase_put(user_path(user_id), data)
         return data
 
@@ -292,16 +247,8 @@ def create_user_if_missing(
 
 def check_joined(user_id):
     try:
-        member = bot.get_chat_member(
-            CHANNEL_USERNAME,
-            int(user_id)
-        )
-        status = member.status
-        return status in (
-            "member",
-            "administrator",
-            "creator"
-        )
+        member = bot.get_chat_member(CHANNEL_USERNAME, int(user_id))
+        return member.status in ("member", "administrator", "creator")
     except Exception as e:
         logger.error("Membership check error: %s", e)
         return False
@@ -330,7 +277,6 @@ def reward_referrer_once(referred_id):
 
     old_points = int(referrer.get("points", 0))
     old_referrals = int(referrer.get("referrals", 0))
-
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     firebase_patch(
@@ -355,11 +301,8 @@ def generate_unique_key():
         chars = string.ascii_uppercase + string.digits
         random_part = "".join(random.choices(chars, k=8))
         key = f"DP-{random_part}"
-
-        existing = firebase_get(f"keys/{key}")
-        if existing is None:
+        if firebase_get(f"keys/{key}") is None:
             return key
-
     return None
 
 
@@ -378,7 +321,6 @@ def create_key_for_user(user_id, plan_id):
     plan = PLANS[plan_id]
     required_points = plan["points"]
     days = plan["days"]
-
     points = int(user.get("points", 0))
 
     if points < required_points:
@@ -407,9 +349,8 @@ def create_key_for_user(user_id, plan_id):
         "created_at": now
     }
 
-    saved = firebase_put(f"keys/{key}", key_data)
-    if not saved:
-        return False, "❌ Firebase error. Points deduct nahi kiye gaye."
+    if not firebase_put(f"keys/{key}", key_data):
+        return False, "❌ Firebase error."
 
     firebase_patch(
         user_path(user_id),
@@ -420,12 +361,11 @@ def create_key_for_user(user_id, plan_id):
             "last_key_at": now
         }
     )
-
     return True, key_data
 
 
 # =========================================================
-# KEYBOARD
+# KEYBOARDS
 # =========================================================
 
 def main_keyboard():
@@ -533,9 +473,7 @@ def verify_callback(call):
     if not check_joined(user_id):
         bot.send_message(
             user_id,
-            "❌ <b>Verification Failed</b>\n\n"
-            "Aapne abhi channel join nahi kiya.\n"
-            "Pehle channel join karo aur phir Verify dabao.",
+            "❌ <b>Verification Failed</b>\n\nAapne abhi channel join nahi kiya.",
             parse_mode="HTML",
             reply_markup=join_keyboard()
         )
@@ -560,9 +498,7 @@ def callback_handler(call):
         link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
         bot.send_message(
             user_id,
-            f"🔗 <b>Your Referral Link</b>\n\n"
-            f"<code>{link}</code>\n\n"
-            f"👥 Har verified referral par:\n<b>+1 Point</b>",
+            f"🔗 <b>Your Referral Link</b>\n\n<code>{link}</code>\n\n👥 Har verified referral par:\n<b>+1 Point</b>",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -574,9 +510,7 @@ def callback_handler(call):
         referrals = int(user.get("referrals", 0))
         bot.send_message(
             user_id,
-            f"👥 <b>Your Referrals</b>\n\n"
-            f"👤 Referrals: <b>{referrals}</b>\n"
-            f"⭐ Points: <b>{points}</b>",
+            f"👥 <b>Your Referrals</b>\n\n👤 Referrals: <b>{referrals}</b>\n⭐ Points: <b>{points}</b>",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -592,13 +526,8 @@ def callback_handler(call):
         text = "🔐 <b>Your Keys</b>\n\n"
         items = list(keys.items())
         items.reverse()
-
         for key, info in items[:20]:
-            text += (
-                f"🔑 <code>{key}</code>\n"
-                f"⏳ {info.get('days', '?')} Days\n"
-                f"📅 {info.get('created_at', '-')}\n\n"
-            )
+            text += f"🔑 <code>{key}</code>\n⏳ {info.get('days', '?')} Days\n📅 {info.get('created_at', '-')}\n\n"
 
         bot.send_message(user_id, text, parse_mode="HTML", reply_markup=main_keyboard())
         return
@@ -610,12 +539,7 @@ def callback_handler(call):
     if data == "plans":
         bot.send_message(
             user_id,
-            "🛒 <b>Premium Plans</b>\n\n"
-            "1 Day = ⭐ 3 Points\n"
-            "3 Days = ⭐ 6 Points\n"
-            "7 Days = ⭐ 10 Points\n"
-            "30 Days = ⭐ 25 Points\n\n"
-            "👇 Plan select karo:",
+            "🛒 <b>Premium Plans</b>\n\n1 Day = ⭐ 3 Points\n3 Days = ⭐ 6 Points\n7 Days = ⭐ 10 Points\n30 Days = ⭐ 25 Points\n\n👇 Plan select karo:",
             parse_mode="HTML",
             reply_markup=plans_keyboard()
         )
@@ -624,15 +548,7 @@ def callback_handler(call):
     if data == "how":
         bot.send_message(
             user_id,
-            "📖 <b>How It Works</b>\n\n"
-            "1️⃣ Bot start karo.\n"
-            "2️⃣ Official channel join karo.\n"
-            "3️⃣ Verify dabao.\n"
-            "4️⃣ Referral link share karo.\n"
-            "5️⃣ Verified referral par +1 point.\n"
-            "6️⃣ Points se premium key generate karo.\n\n"
-            "🔑 Username = Key\n"
-            "🔑 Password = Key",
+            "📖 <b>How It Works</b>\n\n1️⃣ Bot start karo.\n2️⃣ Official channel join karo.\n3️⃣ Verify dabao.\n4️⃣ Referral link share karo.\n5️⃣ Verified referral par +1 point.\n6️⃣ Points se premium key generate karo.",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -640,13 +556,8 @@ def callback_handler(call):
 
     if data.startswith("generate:"):
         plan_id = data.split(":", 1)[1]
-
         if not check_joined(user_id):
-            bot.send_message(
-                user_id,
-                "❌ Pehle channel join karke Verify karo.",
-                reply_markup=join_keyboard()
-            )
+            bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
             return
 
         success, result = create_key_for_user(user_id, plan_id)
@@ -657,12 +568,7 @@ def callback_handler(call):
         key_data = result
         bot.send_message(
             user_id,
-            f"🎉 <b>KEY GENERATED!</b>\n\n"
-            f"🔑 Key: <code>{key_data['key']}</code>\n"
-            f"👤 Username: <code>{key_data['key']}</code>\n"
-            f"🔐 Password: <code>{key_data['key']}</code>\n"
-            f"⏳ Validity: <b>{key_data['days']} Days</b>\n\n"
-            f"📱 App:\n{APP_DOWNLOAD_LINK}",
+            f"🎉 <b>KEY GENERATED!</b>\n\n🔑 Key: <code>{key_data['key']}</code>\n⏳ Validity: <b>{key_data['days']} Days</b>\n\n📱 App:\n{APP_DOWNLOAD_LINK}",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -675,12 +581,7 @@ def callback_handler(call):
 
 @bot.message_handler(commands=["help"])
 def help_command(message):
-    bot.send_message(
-        message.chat.id,
-        "📖 <b>Help</b>\n\n/start - Start bot\n/help - Help\n/ping - Check bot",
-        parse_mode="HTML",
-        reply_markup=main_keyboard()
-    )
+    bot.send_message(message.chat.id, "📖 <b>Help</b>\n\n/start - Start bot", parse_mode="HTML", reply_markup=main_keyboard())
 
 
 @bot.message_handler(commands=["ping"])
@@ -689,7 +590,7 @@ def ping_command(message):
 
 
 # =========================================================
-# BOT INFO & BULLETPROOF POLLING
+# BOT INFO & POLLING
 # =========================================================
 
 def load_bot_username():
@@ -706,11 +607,7 @@ def start_bot():
     while True:
         try:
             print("Starting Telegram polling...")
-            bot.infinity_polling(
-                timeout=30,
-                long_polling_timeout=30,
-                skip_pending=True
-            )
+            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
         except Exception as e:
             print("Polling crashed:", e)
             print("Restarting in 5 seconds...")
@@ -726,17 +623,13 @@ if __name__ == "__main__":
     print("Premium Key Referral Bot Starting...")
     print("================================")
 
-    # 1. Start Flask Web Server for Render 24/7 Keeping
-    threading.Thread(
-        target=run_web_server,
-        daemon=True
-    ).start()
-
+    # Start Flask Web Server for Render 24/7 Keeping
+    threading.Thread(target=run_web_server, daemon=True).start()
     time.sleep(2)
 
-    # 2. Load bot username for referral links
+    # Load bot username for referral links
     load_bot_username()
 
-    # 3. Start Bot Polling Loop
+    # Start Bot Polling Loop
     start_bot()
-    
+        
