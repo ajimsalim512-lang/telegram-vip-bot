@@ -17,12 +17,14 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
+FREE_FF_CHANNEL = "https://t.me/Memonxgamingff"
 
 PLANS = {
     "1": {"name": "1 Day", "days": 1, "points": 3},
     "3": {"name": "3 Days", "days": 3, "points": 6},
     "7": {"name": "7 Days", "days": 7, "points": 10},
-    "30": {"name": "30 Days", "days": 30, "points": 25}
+    "30": {"name": "30 Days", "days": 30, "points": 25},
+    "free_ff": {"name": "Free FF (Secret Channel)", "days": 0, "points": 5}
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -167,37 +169,12 @@ def generate_unique_key():
             return key
     return None
 
-def create_key_for_user(user_id, plan_id):
-    if plan_id not in PLANS:
-        return False, "❌ Invalid plan."
-    user = get_user(user_id)
-    if not user:
-        return False, "❌ User not found."
-
-    plan = PLANS[plan_id]
-    if int(user.get("points", 0)) < plan["points"]:
-        return False, f"❌ <b>Insufficient Points</b>\n⭐ Your Points: {user.get('points', 0)}\nRequired: {plan['points']}"
-
-    key = generate_unique_key()
-    if not key:
-        return False, "❌ Key generation failed."
-
-    new_points = int(user.get("points", 0)) - plan["points"]
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    key_data = {"key": key, "username": key, "password": key, "user_id": str(user_id), "days": plan["days"], "status": "active", "created_at": now}
-
-    if not firebase_put(f"keys/{key}", key_data):
-        return False, "❌ Firebase error."
-
-    firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
-    return True, key_data
-
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row(types.KeyboardButton("🎁 Generate Key"), types.KeyboardButton("💎 Aim AI Panel"))
-    markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 Referrals"))
-    markup.row(types.KeyboardButton("🔑 My Keys"), types.KeyboardButton("🔄 Refresh"))
-    markup.row(types.KeyboardButton("ℹ️ How it works"))
+    markup.row(types.KeyboardButton("🎁 Generate Key"), types.KeyboardButton("🔥 Free FF"))
+    markup.row(types.KeyboardButton("💎 Aim AI Panel"), types.KeyboardButton("🔗 My Link"))
+    markup.row(types.KeyboardButton("👥 Referrals"), types.KeyboardButton("🔑 My Keys"))
+    markup.row(types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
     return markup
 
 def join_keyboard():
@@ -209,7 +186,10 @@ def join_keyboard():
 def plans_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     for pid, plan in PLANS.items():
-        markup.add(types.InlineKeyboardButton(f"{plan['name']} - ⭐ {plan['points']}", callback_data=f"generate:{pid}"))
+        if pid == "free_ff":
+            markup.add(types.InlineKeyboardButton(f"🔥 {plan['name']} - ⭐ {plan['points']}", callback_data=f"unlock:{pid}"))
+        else:
+            markup.add(types.InlineKeyboardButton(f"{plan['name']} - ⭐ {plan['points']}", callback_data=f"generate:{pid}"))
     markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="refresh"))
     return markup
 
@@ -268,6 +248,18 @@ def handle_text_buttons(message):
 
     if "Generate Key" in text:
         bot.send_message(user_id, "🛒 <b>Premium Plans</b>\n\n1 Day = ⭐ 3 Points\n3 Days = ⭐ 6 Points\n7 Days = ⭐ 10 Points\n30 Days = ⭐ 25 Points\n\n👇 Apna manpasand plan select karo:", parse_mode="HTML", reply_markup=plans_keyboard())
+    elif "Free FF" in text:
+        bot.send_message(
+            user_id,
+            "🔥 <b>Free FF - Secret Channel Access</b>\n\n"
+            "Isme aapko milega direct secret Telegram channel ka link jisme <b>Keys aur APK</b> pehle se upload hain!\n\n"
+            "⭐ Required Points: <b>5 Points</b>\n\n"
+            "👇 Unlock karne ke liye niche click karein:",
+            parse_mode="HTML",
+            reply_markup=types.InlineKeyboardMarkup().add(
+                types.InlineKeyboardButton("🔓 Unlock Free FF (5 ⭐)", callback_data="unlock:free_ff")
+            )
+        )
     elif "Aim AI Panel" in text:
         bot.send_message(user_id, "💎 <b>Aim AI Panel</b>\n\n✅ Generate unlimited keys for free directly\n✅ Sell unlimited keys\n✅ Panel with your name\n✅ One time investment\n✅ Price ₹300 only\n❌ Free not available ❌❌\n\n💬 <b>Buy from here / Contact Owner:</b>\n👉 <b>@Memonsalim</b>", parse_mode="HTML", reply_markup=main_keyboard())
     elif "My Link" in text:
@@ -289,7 +281,17 @@ def handle_text_buttons(message):
     elif "Refresh" in text:
         send_dashboard(message)
     elif "How it works" in text:
-        bot.send_message(user_id, "📖 <b>How It Works</b>\n\n1️⃣ Bot start karein.\n2️⃣ Channel join karke Verify karein.\n3️⃣ Link share karke points earn karein.\n4️⃣ Points se key generate karein! 🎉", parse_mode="HTML", reply_markup=main_keyboard())
+        bot.send_message(
+            user_id,
+            "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
+            "1️⃣ Sabse pehle bot ko start karke official channel join karo aur <b>Verify</b> dabao.\n"
+            "2️⃣ Apni **Referral Link** ko copy karke apne doston ke sath share karo.\n"
+            "3️⃣ Jaise hi aapka dost link se aakar channel join karega, aapko turant **+1 Point (Star)** mil jayega! ⭐\n"
+            "4️⃣ Jab aapke paas 3, 6, 10 ya 25 points ho jayein, tab **'Generate Key'** par click karke apni manpasand **Premium Key** bana lo! 🔑\n"
+            "5️⃣ Agar aapko direct secret Free FF channel chahiye jisme sab kuch uploaded hai, toh sirf **5 Points** dekar use unlock kar sakte ho! 🔥",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
+        )
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -302,11 +304,53 @@ def callback_handler(call):
         if not check_joined(user_id):
             bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
             return
-        success, result = create_key_for_user(user_id, plan_id)
-        if not success:
-            bot.send_message(user_id, str(result), parse_mode="HTML", reply_markup=main_keyboard())
+        
+        user = get_user(user_id)
+        plan = PLANS[plan_id]
+        if int(user.get("points", 0)) < plan["points"]:
+            bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nAapke paas points kam hain! (Required: {plan['points']} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
             return
-        bot.send_message(user_id, f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n🔑 Key: <code>{result['key']}</code>\n⏳ Validity: <b>{result['days']} Days</b>", parse_mode="HTML", reply_markup=main_keyboard())
+
+        key = generate_unique_key()
+        if not key:
+            bot.send_message(user_id, "❌ Key generation failed. Dobara koshish karein.", reply_markup=main_keyboard())
+            return
+
+        new_points = int(user.get("points", 0)) - plan["points"]
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        key_data = {"key": key, "username": key, "password": key, "user_id": str(user_id), "days": plan["days"], "status": "active", "created_at": now}
+
+        if not firebase_put(f"keys/{key}", key_data):
+            bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyboard())
+            return
+
+        firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
+        bot.send_message(user_id, f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n🔑 Key: <code>{key}</code>\n⏳ Validity: <b>{plan['days']} Days</b>", parse_mode="HTML", reply_markup=main_keyboard())
+
+    elif call.data == "unlock:free_ff":
+        if not check_joined(user_id):
+            bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
+            return
+
+        user = get_user(user_id)
+        points = int(user.get("points", 0))
+        required = PLANS["free_ff"]["points"]
+
+        if points < required:
+            bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nFree FF channel unlock karne ke liye <b>{required} Points</b> chahiye!\n(Aapke paas: {points} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
+            return
+
+        new_points = points - required
+        firebase_patch(f"users/{user_id}", {"points": new_points, "unlocked_free_ff": True})
+
+        bot.send_message(
+            user_id,
+            f"🎉 <b>Free FF Channel Unlocked Successfully!</b>\n\n"
+            f"🔗 Secret Channel Link:\n{FREE_FF_CHANNEL}\n\n"
+            f"Is channel me aapko keys aur APK mil jayengi! Enjoy! 🚀",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
+        )
 
 def load_bot_username():
     global BOT_USERNAME
@@ -328,4 +372,4 @@ if __name__ == "__main__":
     time.sleep(2)
     load_bot_username()
     start_bot()
-        
+    
