@@ -143,7 +143,7 @@ def run_web_server():
 
 
 # =========================================================
-# FIREBASE HELPERS
+# FIREBASE HELPERS (FAST & OPTIMIZED)
 # =========================================================
 
 def firebase_url(path=""):
@@ -157,7 +157,7 @@ def firebase_url(path=""):
 
 def firebase_get(path=""):
     try:
-        response = requests.get(firebase_url(path), timeout=15)
+        response = requests.get(firebase_url(path), timeout=10)
         if response.status_code != 200:
             return None
         return response.json()
@@ -168,7 +168,7 @@ def firebase_get(path=""):
 
 def firebase_put(path, data):
     try:
-        response = requests.put(firebase_url(path), json=data, timeout=15)
+        response = requests.put(firebase_url(path), json=data, timeout=10)
         return response.status_code in (200, 201)
     except Exception as e:
         logger.error("Firebase PUT exception: %s", e)
@@ -177,7 +177,7 @@ def firebase_put(path, data):
 
 def firebase_patch(path, data):
     try:
-        response = requests.patch(firebase_url(path), json=data, timeout=15)
+        response = requests.patch(firebase_url(path), json=data, timeout=10)
         return response.status_code in (200, 201)
     except Exception as e:
         logger.error("Firebase PATCH exception: %s", e)
@@ -255,7 +255,7 @@ def check_joined(user_id):
 
 
 # =========================================================
-# REFERRAL REWARD
+# REFERRAL REWARD & NOTIFICATION
 # =========================================================
 
 def reward_referrer_once(referred_id):
@@ -289,6 +289,19 @@ def reward_referrer_once(referred_id):
             }
         }
     )
+
+    # Send automatic notification to referrer about new successful referral
+    try:
+        bot.send_message(
+            int(referrer_id),
+            "🎉 <b>New Referral Joined!</b>\n\n"
+            "Aapki link se ek naye user ne channel join kar liya hai!\n"
+            "⭐ Aapko <b>+1 Point</b> mil gaya hai! 🚀",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
     return True
 
 
@@ -328,12 +341,12 @@ def create_key_for_user(user_id, plan_id):
             f"❌ <b>Insufficient Points</b>\n\n"
             f"⭐ Your Points: <b>{points}</b>\n"
             f"Required: <b>{required_points}</b>\n\n"
-            f"Invite more users to earn points."
+            f"💡 Aur points kamane ke liye apna Referral Link doston ke sath share karein!"
         )
 
     key = generate_unique_key()
     if not key:
-        return False, "❌ Key generate nahi ho saki."
+        return False, "❌ Key generate nahi ho saki. Dobara koshish karein."
 
     new_points = points - required_points
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -372,14 +385,17 @@ def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(
         types.KeyboardButton("🎁 Generate Key"),
-        types.KeyboardButton("🔗 My Link")
+        types.KeyboardButton("🛒 Buy Direct")
     )
     markup.row(
-        types.KeyboardButton("👥 Referrals"),
-        types.KeyboardButton("🔑 My Keys")
+        types.KeyboardButton("🔗 My Link"),
+        types.KeyboardButton("👥 Referrals")
     )
     markup.row(
-        types.KeyboardButton("🔄 Refresh"),
+        types.KeyboardButton("🔑 My Keys"),
+        types.KeyboardButton("🔄 Refresh")
+    )
+    markup.row(
         types.KeyboardButton("ℹ️ How it works")
     )
     return markup
@@ -409,7 +425,7 @@ def plans_keyboard():
 # DASHBOARD
 # =========================================================
 
-def send_dashboard(message_or_user):
+def send_dashboard(message_or_user, extra_msg=""):
     if hasattr(message_or_user, "from_user"):
         user_obj = message_or_user.from_user
         user_id = user_obj.id
@@ -425,13 +441,19 @@ def send_dashboard(message_or_user):
     points = int(user.get("points", 0))
     referrals = int(user.get("referrals", 0))
 
-    bot.send_message(
-        user_id,
+    text = (
+        f"{extra_msg}\n\n" if extra_msg else ""
+    ) + (
         f"🏆 <b>Aapka Rewards Dashboard</b>\n\n"
         f"⭐ Total Points: <b>{points}</b>\n"
         f"👥 Verified Referrals: <b>{referrals}</b>\n\n"
-        f"🔑 Points se premium key generate karo.\n\n"
-        f"📱 App:\n{APP_DOWNLOAD_LINK}",
+        f"✨ <i>Aapka bot taiyar hai key generate karne ke liye!</i> 🚀\n\n"
+        f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}"
+    )
+
+    bot.send_message(
+        user_id,
+        text,
         parse_mode="HTML",
         reply_markup=main_keyboard()
     )
@@ -465,7 +487,7 @@ def start_command(message):
         return
 
     reward_referrer_once(user_id)
-    send_dashboard(message)
+    send_dashboard(message, "🎉 <b>Verification Successful!</b>")
 
 
 # =========================================================
@@ -480,15 +502,15 @@ def verify_callback(call):
     if not check_joined(user_id):
         bot.send_message(
             user_id,
-            "❌ <b>Verification Failed</b>\n\nAapne abhi channel join nahi kiya.",
+            "❌ <b>Verification Failed</b>\n\nAapne abhi channel join nahi kiya hai. Pehle join karein!",
             parse_mode="HTML",
             reply_markup=join_keyboard()
         )
         return
 
     reward_referrer_once(user_id)
-    bot.send_message(user_id, "✅ Verification successful!")
-    send_dashboard(call.message)
+    bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
+    send_dashboard(call.message, "🎉 <b>Aapka bot taiyar hai key generate karne ke liye!</b> 🔥")
 
 
 # =========================================================
@@ -518,9 +540,21 @@ def handle_text_buttons(message):
             "3 Days = ⭐ 6 Points\n"
             "7 Days = ⭐ 10 Points\n"
             "30 Days = ⭐ 25 Points\n\n"
-            "👇 Plan select karo:",
+            "👇 Apna manpasand plan select karo:",
             parse_mode="HTML",
             reply_markup=plans_keyboard()
+        )
+        return
+
+    if "Buy Direct" in text:
+        bot.send_message(
+            user_id,
+            "💎 <b>Buy Aim AI Keys Directly</b>\n\n"
+            "❌ <b>Free not available</b> ❌❌\n\n"
+            "💬 Direct key kharadne ke liye owner se contact karein:\n"
+            "👉 <b>@Memonsalim</b>",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
         )
         return
 
@@ -528,7 +562,10 @@ def handle_text_buttons(message):
         link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
         bot.send_message(
             user_id,
-            f"🔗 <b>Your Referral Link</b>\n\n<code>{link}</code>\n\n👥 Har verified referral par:\n<b>+1 Point</b>",
+            f"🔗 <b>Aapki Personal Referral Link</b>\n\n"
+            f"<code>{link}</code>\n\n"
+            f"👥 Is link ko doston ke sath share karein!\n"
+            f"Har ek verified referral par aapko milega **+1 Point** ⭐",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -540,7 +577,9 @@ def handle_text_buttons(message):
         referrals = int(user.get("referrals", 0)) if user else 0
         bot.send_message(
             user_id,
-            f"👥 <b>Your Referrals</b>\n\n👤 Referrals: <b>{referrals}</b>\n⭐ Points: <b>{points}</b>",
+            f"👥 <b>Aapke Referrals Status</b>\n\n"
+            f"👤 Total Referrals: <b>{referrals}</b>\n"
+            f"⭐ Total Points: <b>{points}</b>",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -550,10 +589,10 @@ def handle_text_buttons(message):
         user = get_user(user_id)
         keys = user.get("keys", {}) if user else {}
         if not keys:
-            bot.send_message(user_id, "📭 Abhi koi key nahi hai.", reply_markup=main_keyboard())
+            bot.send_message(user_id, "📭 Abhi tak aapne koi key generate nahi ki hai.", reply_markup=main_keyboard())
             return
 
-        text_msg = "🔐 <b>Your Keys</b>\n\n"
+        text_msg = "🔐 <b>Aapki Generated Keys</b>\n\n"
         items = list(keys.items())
         items.reverse()
         for key, info in items[:20]:
@@ -569,13 +608,12 @@ def handle_text_buttons(message):
     if "How it works" in text or "How It Works" in text:
         bot.send_message(
             user_id,
-            "📖 <b>How It Works</b>\n\n"
-            "1️⃣ Bot start karo.\n"
-            "2️⃣ Official channel join karo.\n"
-            "3️⃣ Verify dabao.\n"
-            "4️⃣ Referral link share karo.\n"
-            "5️⃣ Verified referral par +1 point.\n"
-            "6️⃣ Points se premium key generate karo.",
+            "📖 <b>How It Works (Kaise Kaam Karta Hai)</b>\n\n"
+            "1️⃣ Bot ko start karein.\n"
+            "2️⃣ Official channel join karke Verify karein.\n"
+            "3️⃣ Apni Referral Link doston ke sath share karein.\n"
+            "4️⃣ Har verified referral par **+1 Point** earn karein.\n"
+            "5️⃣ Points se apni **Premium Key** generate karein! 🎉",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -610,7 +648,12 @@ def callback_handler(call):
         key_data = result
         bot.send_message(
             user_id,
-            f"🎉 <b>KEY GENERATED!</b>\n\n🔑 Key: <code>{key_data['key']}</code>\n⏳ Validity: <b>{key_data['days']} Days</b>\n\n📱 App:\n{APP_DOWNLOAD_LINK}",
+            f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n"
+            f"🔑 Key: <code>{key_data['key']}</code>\n"
+            f"👤 Username: <code>{key_data['key']}</code>\n"
+            f"🔐 Password: <code>{key_data['key']}</code>\n"
+            f"⏳ Validity: <b>{key_data['days']} Days</b>\n\n"
+            f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -623,12 +666,12 @@ def callback_handler(call):
 
 @bot.message_handler(commands=["help"])
 def help_command(message):
-    bot.send_message(message.chat.id, "📖 <b>Help</b>\n\n/start - Start bot", parse_mode="HTML", reply_markup=main_keyboard())
+    bot.send_message(message.chat.id, "📖 <b>Help Menu</b>\n\n/start - Bot ko restart karein", parse_mode="HTML", reply_markup=main_keyboard())
 
 
 @bot.message_handler(commands=["ping"])
 def ping_command(message):
-    bot.reply_to(message, "🏓 Pong! Bot is running.")
+    bot.reply_to(message, "🏓 Pong! Bot bilkul mast chal raha hai. 🚀")
 
 
 # =========================================================
@@ -637,7 +680,7 @@ def ping_command(message):
 
 def send_startup_notification():
     try:
-        time.sleep(5)  # Thoda wait taaki bot username load ho jaye
+        time.sleep(5)
         users = firebase_get("users")
         if isinstance(users, dict):
             print("Broadcasting 'Bot Fixed 🎉' notification to users...")
@@ -646,60 +689,9 @@ def send_startup_notification():
                     try:
                         bot.send_message(
                             int(uid),
-                            "🎉 <b>Bot Fixed!</b>\n\nSari problems fix kar di gayi hain. Ab bot bilkul smooth kaam kar raha hai! 🚀",
+                            "🎉 <b>Bot Updated & Fixed!</b>\n\n"
+                            "Naye features add kar diye gaye hain aur speed bhi fast kar di gayi hai! 🚀\n"
+                            "Aapka bot ab bilkul taiyar hai key generate karne ke liye! ✨",
                             parse_mode="HTML"
                         )
-                        time.sleep(0.05)  # Telegram rate limit se bachne ke liye
-                    except Exception:
-                        pass
-    except Exception as e:
-        print("Startup broadcast error:", e)
-
-
-# =========================================================
-# BOT INFO & POLLING
-# =========================================================
-
-def load_bot_username():
-    global BOT_USERNAME
-    try:
-        me = bot.get_me()
-        BOT_USERNAME = me.username or ""
-        print("Bot Username loaded:", BOT_USERNAME)
-    except Exception as e:
-        print("Could not get bot info:", e)
-
-
-def start_bot():
-    while True:
-        try:
-            print("Starting Telegram polling...")
-            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
-        except Exception as e:
-            print("Polling crashed:", e)
-            print("Restarting in 5 seconds...")
-            time.sleep(5)
-
-
-# =========================================================
-# MAIN EXECUTION
-# =========================================================
-
-if __name__ == "__main__":
-    print("================================")
-    print("Premium Key Referral Bot Starting...")
-    print("================================")
-
-    # 1. Start Flask Web Server for Render 24/7 Keeping
-    threading.Thread(target=run_web_server, daemon=True).start()
-    time.sleep(2)
-
-    # 2. Load bot username for referral links
-    load_bot_username()
-
-    # 3. Start Background Startup Broadcast Worker
-    threading.Thread(target=send_startup_notification, daemon=True).start()
-
-    # 4. Start Bulletproof Bot Polling Loop
-    start_bot()
-        
+                   
