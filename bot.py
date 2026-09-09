@@ -365,7 +365,7 @@ def create_key_for_user(user_id, plan_id):
 
 
 # =========================================================
-# KEYBOARDS (REPLY KEYBOARD FOR BOTTOM BUTTONS)
+# KEYBOARDS
 # =========================================================
 
 def main_keyboard():
@@ -406,13 +406,21 @@ def plans_keyboard():
 
 
 # =========================================================
-# DASHBOARD
+# DASHBOARD (AUTO-CREATE USER IF MISSING)
 # =========================================================
 
-def send_dashboard(user_id):
+def send_dashboard(message_or_user):
+    # Support both message object and direct user_id
+    if hasattr(message_or_user, "from_user"):
+        user_obj = message_or_user.from_user
+        user_id = user_obj.id
+        create_user_if_missing(user_obj)
+    else:
+        user_id = message_or_user
+
     user = get_user(user_id)
     if not user:
-        bot.send_message(user_id, "❌ User data nahi mila.")
+        bot.send_message(user_id, "❌ User data nahi mila. Pehle /start bhejein.")
         return
 
     points = int(user.get("points", 0))
@@ -458,7 +466,7 @@ def start_command(message):
         return
 
     reward_referrer_once(user_id)
-    send_dashboard(user_id)
+    send_dashboard(message)
 
 
 # =========================================================
@@ -481,7 +489,7 @@ def verify_callback(call):
 
     reward_referrer_once(user_id)
     bot.send_message(user_id, "✅ Verification successful!")
-    send_dashboard(user_id)
+    send_dashboard(call.message)
 
 
 # =========================================================
@@ -492,6 +500,9 @@ def verify_callback(call):
 def handle_text_buttons(message):
     user_id = message.from_user.id
     text = (message.text or "").strip()
+
+    # Ensure user exists in firebase to prevent any 'User data nahi mila' error
+    create_user_if_missing(message.from_user)
 
     if not check_joined(user_id):
         bot.send_message(
@@ -554,7 +565,7 @@ def handle_text_buttons(message):
         return
 
     if "Refresh" in text:
-        send_dashboard(user_id)
+        send_dashboard(message)
         return
 
     if "How it works" in text or "How It Works" in text:
@@ -584,7 +595,7 @@ def callback_handler(call):
     bot.answer_callback_query(call.id)
 
     if data == "refresh":
-        send_dashboard(user_id)
+        send_dashboard(call.message)
         return
 
     if data.startswith("generate:"):
@@ -643,7 +654,7 @@ def start_bot():
             bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
         except Exception as e:
             print("Polling crashed:", e)
-            print("Restarting in 5 secondscharts..." if False else "Restarting in 5 seconds...")
+            print("Restarting in 5 seconds...")
             time.sleep(5)
 
 
@@ -665,3 +676,4 @@ if __name__ == "__main__":
 
     # Start Bot Polling Loop
     start_bot()
+    
