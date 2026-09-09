@@ -548,7 +548,7 @@ def handle_text_buttons(message):
     if "Aim AI Panel" in text:
         bot.send_message(
             user_id,
-            "💎 <b>Buy Directly From Owner - Aim AI Panel</b>\n\n"
+            "💎 <b>Aim AI Panel</b>\n\n"
             "✅ Generate unlimited keys for free directly\n"
             "✅ Sell unlimited keys\n"
             "✅ Panel with your name\n"
@@ -569,7 +569,7 @@ def handle_text_buttons(message):
             f"🔗 <b>Aapki Personal Referral Link</b>\n\n"
             f"<code>{link}</code>\n\n"
             f"👥 Is link ko doston ke sath share karein!\n"
-            f"Har ek verified referral par aapko milega **+1 Point** ⭐",
+            f"Har ek verified referral par aapko milega <b>+1 Point</b> ⭐",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -616,8 +616,8 @@ def handle_text_buttons(message):
             "1️⃣ Bot ko start karein.\n"
             "2️⃣ Official channel join karke Verify karein.\n"
             "3️⃣ Apni Referral Link doston ke sath share karein.\n"
-            "4️⃣ Har verified referral par **+1 Point** earn karein.\n"
-            "5️⃣ Points se apni **Premium Key** generate karein! 🎉",
+            "4️⃣ Har verified referral par <b>+1 Point</b> earn karein.\n"
+            "5️⃣ Points se apni <b>Premium Key</b> generate karein! 🎉",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -679,7 +679,7 @@ def ping_command(message):
 
 
 # =========================================================
-# AUTO-BROADCAST NOTIFICATION ON STARTUP (BOT FIXED 🎉)
+# AUTO-BROADCAST NOTIFICATION ON STARTUP
 # =========================================================
 
 def send_startup_notification():
@@ -695,4 +695,5 @@ def send_startup_notification():
                             int(uid),
                             "🎉 <b>Bot Updated & Optimized!</b>\n\n"
                             "Naye features add kar diye gaye hain aur speed bhi fast kar di gayi hai! 🚀\n"
-                            "Aapka bot ab bilkul taiyar hai key
+                            "Aapka bot ab bilkul taiyar hai key generate karne ke liye! ✨",
+   
