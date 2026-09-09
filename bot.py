@@ -486,7 +486,7 @@ def start_command(message):
         return
 
     reward_referrer_once(user_id)
-    send_dashboard(message, "🎉 <b>Aapka bot taiyar hai keys generate karne ke liye!</b>")
+    send_dashboard(message, "🎉 <b>Verification Successful! Aapka bot taiyar hai key generate karne ke liye!</b>")
 
 
 # =========================================================
@@ -509,7 +509,7 @@ def verify_callback(call):
 
     reward_referrer_once(user_id)
     bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
-    send_dashboard(call.message, "🎉 <b>Aapka bot taiyar hai keys generate karne ke liye!</b> 🔥")
+    send_dashboard(call.message, "🎉 <b>Aapka bot taiyar hai key generate karne ke liye!</b> 🔥")
 
 
 # =========================================================
@@ -679,20 +679,31 @@ def ping_command(message):
 
 
 # =========================================================
-# AUTO-BROADCAST NOTIFICATION ON STARTUP
+# BOT INFO & POLLING
 # =========================================================
 
-def send_startup_notification():
+def load_bot_username():
+    global BOT_USERNAME
     try:
-        time.sleep(5)
-        users = firebase_get("users")
-        if isinstance(users, dict):
-            print("Broadcasting 'Bot Ready 🎉' notification to users...")
-            for uid, user_data in users.items():
-                if isinstance(user_data, dict) and user_data.get("notifications_enabled", True):
-                    try:
-                        bot.send_message(
-                            int(uid),
-                            "🎉 <b>Aapka bot ready hai keys generate karne ke liye!</b> ✨\n\n"
-                            "Sari updates ho chuki hain, ab aap apne points use karke keys bana sakte hain ya referral link share kar sakte hain! 🚀",
-  
+        me = bot.get_me()
+        BOT_USERNAME = me.username or ""
+        print("Bot Username loaded:", BOT_USERNAME)
+    except Exception as e:
+        print("Could not get bot info:", e)
+
+
+def start_bot():
+    while True:
+        try:
+            print("Removing webhooks & starting polling...")
+            bot.remove_webhook()
+            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
+        except Exception as e:
+            print("Polling crashed:", e)
+            print("Restarting in 5 seconds...")
+            time.sleep(5)
+
+
+# =========================================================
+# MAIN EXECUTION
+# ==
