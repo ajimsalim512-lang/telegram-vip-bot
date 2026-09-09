@@ -11,7 +11,8 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # --- CONFIGURATION ---
-API_TOKEN = '8803139822:AAFNCLWVAnTGD3g3jg7aNDATiTSRiMAqGMo'
+API_TOKEN = '8803139822:AAHfhop4b_z1gPS3OVIGES__ofpaoJ9-qOM'
+'
 CHANNEL_USERNAME = '@novaengine01'
 CHANNEL_LINK = 'https://t.me/novaengine01'
 
