@@ -29,9 +29,10 @@ session = requests.Session()
 conn = sqlite3.connect('referral_bot.db', check_same_thread=False)
 cursor = conn.cursor()
 
+# Default points 3 set kiye gaye hain
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
-    points INTEGER DEFAULT 0,
+    points INTEGER DEFAULT 3,
     referrer_id INTEGER DEFAULT NULL,
     is_verified INTEGER DEFAULT 0
 )''')
@@ -43,6 +44,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS user_keys (
     plan_days INTEGER,
     created_at TEXT
 )''')
+conn.commit()
+
+# Sabhi existing users ko bhi 3 points dene ke liye update query
+cursor.execute("UPDATE users SET points = 3 WHERE points < 3")
 conn.commit()
 
 chars = string.ascii_uppercase + string.digits
@@ -83,10 +88,9 @@ def send_dashboard(chat_id, user_id):
     try:
         bot_info = bot.get_me()
         
-        # Fresh points fetch from database
         cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
         res = cursor.fetchone()
-        points = res[0] if res else 0
+        points = res[0] if res else 3
 
         cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_verified = 1", (user_id,))
         total_refs = cursor.fetchone()[0]
@@ -117,7 +121,8 @@ def start_cmd(message):
 
     if not user:
         ref_by = int(args) if args.isdigit() and int(args) != user_id else None
-        cursor.execute("INSERT INTO users (user_id, referrer_id, is_verified) VALUES (?, ?, 0)", (user_id, ref_by))
+        # Naye user ko shuruat me hi 3 points diye ja rahe hain
+        cursor.execute("INSERT INTO users (user_id, points, referrer_id, is_verified) VALUES (?, 3, ?, 0)", (user_id, ref_by))
         conn.commit()
         user = (0, ref_by)
 
@@ -132,11 +137,9 @@ def start_cmd(message):
             bot.reply_to(message, f"⚠️ Bot use karne ke liye pehle official channel join karein:\n{CHANNEL_LINK}", reply_markup=kb)
             return
 
-        # Mark user as verified
         cursor.execute("UPDATE users SET is_verified = 1 WHERE user_id = ?", (user_id,))
         conn.commit()
 
-        # Give point to referrer if exists
         if ref_by:
             cursor.execute("UPDATE users SET points = points + 1 WHERE user_id = ?", (ref_by,))
             conn.commit()
@@ -185,7 +188,7 @@ def handle_menu_buttons(message):
     if "Generate Key" in txt:
         cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
         res = cursor.fetchone()
-        user_points = res[0] if res else 0
+        user_points = res[0] if res else 3
 
         if user_points < 3:
             bot_info = bot.get_me()
@@ -197,7 +200,7 @@ def handle_menu_buttons(message):
                 f"🎯 Minimum Chahiye: <b>3 Points</b> (1 Day VIP Key ke liye)\n\n"
                 f"👇🏻 <b>Aapki Referral Link (Tap karke Copy karein):</b>\n"
                 f"<code>{ref_link}</code>\n\n"
-                f"💡 <i>Is link ko doston ko share karein. Jaise hi 3 points ho jayenge, aap key generate kar sakenge.</i>"
+                f"💡 <i>Is link ko doston ko share karein. Jaise hi points ho jayenge, aap key generate kar sakenge.</i>"
             )
             bot.send_message(message.chat.id, warning_msg, parse_mode="HTML")
             return
@@ -219,6 +222,7 @@ def handle_menu_buttons(message):
         guide_text = (
             "📖 <b>Bot Kaise Kaam Karta Hai? (Aasan Guide)</b>\n\n"
             "<b>1️⃣ Points Kaise Kamayein?</b>\n"
+            "• Shuruat me har naye user ko <b>3 Points Free</b> milte hain!\n"
             "• Apni referral link apne doston ko share karein.\n"
             "• Jab aapka dost channel join karega, aapko <b>+1 Point</b> milega.\n\n"
             "<b>2️⃣ VIP Key Points:</b>\n"
@@ -247,7 +251,7 @@ def handle_menu_buttons(message):
                 message.chat.id, 
                 f"📊 <b>Aapke Total Referrals:</b> {total_refs}\n\n"
                 f"❌ Aapne abhi tak koi key generate nahi ki hai.\n"
-                f"Points collect karne ke baad <b>🎁 Generate Key</b> par tap karein.", 
+                f"Points use karne ke liye <b>🎁 Generate Key</b> par tap karein.", 
                 parse_mode="HTML"
             )
             return
@@ -278,7 +282,7 @@ def process_claim(call):
 
     cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone()
-    points = res[0] if res else 0
+    points = res[0] if res else 3
 
     if points < req_points:
         bot.answer_callback_query(call.id, f"❌ Points kam hain! Chahiye: {req_points} Points (Aapke paas hain: {points})", show_alert=True)
@@ -350,4 +354,4 @@ while True:
     except Exception as e:
         print(f"⚠️ Connection Error aaya, 5 second me restart ho raha hai: {e}")
         time.sleep(5)
-        
+    
