@@ -17,6 +17,10 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
+FREE_FIRE_APK_LINK = "https://t.me/memonxgaming/1060"
+FREE_FIRE_VIDEO_LINK = "https://t.me/novaengine01"
+
+SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
 PLANS = {
     "1": {"name": "1 Day", "days": 1, "points": 3},
@@ -97,6 +101,7 @@ def create_user_if_missing(telegram_user, referrer_id=None):
             "points": 0,
             "referrals": 0,
             "referrer_id": ref,
+            "unlimited_access": False,
             "started": True,
             "notifications_enabled": True,
             "created_at": now,
@@ -198,9 +203,10 @@ def send_dashboard(message_or_user, extra_msg=""):
     if not user:
         return
 
+    points_display = "♾️ UNLIMITED" if user.get("unlimited_access") else str(user.get("points", 0))
     text = (f"{extra_msg}\n\n" if extra_msg else "") + (
         f"🏆 <b>Aapka Rewards Dashboard</b>\n\n"
-        f"⭐ Total Points: <b>{user.get('points', 0)}</b>\n"
+        f"⭐ Total Points: <b>{points_display}</b>\n"
         f"👥 Verified Referrals: <b>{user.get('referrals', 0)}</b>\n\n"
         f"✨ <i>Aapka bot taiyar hai key generate karne ke liye!</i> 🚀\n\n"
         f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}"
@@ -241,6 +247,18 @@ def handle_text_buttons(message):
     text = (message.text or "").strip()
     create_user_if_missing(message.from_user)
 
+    # Hidden Secret Command Check for Unlimited Access
+    if text == SECRET_ADMIN_COMMAND:
+        firebase_patch(f"users/{user_id}", {"unlimited_access": True})
+        bot.send_message(
+            user_id,
+            "👑 <b>Secret Admin Access Activated!</b>\n\n"
+            "Ab aapke paas **Unlimited Keys** generate karne ki power aa chuki hai! 🚀",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
+        )
+        return
+
     if not check_joined(user_id):
         bot.send_message(user_id, "⚠️ Bot use karne ke liye pehle official channel join karein.", reply_markup=join_keyboard())
         return
@@ -279,7 +297,8 @@ def handle_text_buttons(message):
         bot.send_message(user_id, f"🔗 <b>Aapki Personal Referral Link</b>\n\n<code>{link}</code>\n\n👥 Is link ko doston ke sath share karein!\nHar verified referral par milega <b>+1 Point</b> ⭐", parse_mode="HTML", reply_markup=main_keyboard())
     elif "Referrals" in text:
         user = get_user(user_id)
-        bot.send_message(user_id, f"👥 <b>Aapke Referrals Status</b>\n\n👤 Total Referrals: <b>{user.get('referrals', 0)}</b>\n⭐ Total Points: <b>{user.get('points', 0)}</b>", parse_mode="HTML", reply_markup=main_keyboard())
+        points_display = "♾️ UNLIMITED" if user.get("unlimited_access") else str(user.get("points", 0))
+        bot.send_message(user_id, f"👥 <b>Aapke Referrals Status</b>\n\n👤 Total Referrals: <b>{user.get('referrals', 0)}</b>\n⭐ Total Points: <b>{points_display}</b>", parse_mode="HTML", reply_markup=main_keyboard())
     elif "My Keys" in text:
         user = get_user(user_id)
         keys = user.get("keys", {}) if user else {}
@@ -319,7 +338,11 @@ def callback_handler(call):
         
         user = get_user(user_id)
         plan = PLANS[plan_id]
-        if int(user.get("points", 0)) < plan["points"]:
+        
+        # Check if user has unlimited access enabled
+        is_unlimited = user.get("unlimited_access", False)
+        
+        if not is_unlimited and int(user.get("points", 0)) < plan["points"]:
             bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nAapke paas points kam hain! (Required: {plan['points']} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
             return
 
@@ -328,7 +351,10 @@ def callback_handler(call):
             bot.send_message(user_id, "❌ Key generation failed. Dobara koshish karein.", reply_markup=main_keyboard())
             return
 
-        new_points = int(user.get("points", 0)) - plan["points"]
+        new_points = int(user.get("points", 0))
+        if not is_unlimited:
+            new_points -= plan["points"]
+
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         key_data = {"key": key, "username": key, "password": key, "user_id": str(user_id), "days": plan["days"], "status": "active", "created_at": now}
 
@@ -346,36 +372,38 @@ def callback_handler(call):
 
         user = get_user(user_id)
         points = int(user.get("points", 0))
+        is_unlimited = user.get("unlimited_access", False)
         required = PLANS["free_fire"]["points"]
 
-        if points < required:
+        if not is_unlimited and points < required:
             bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nFree Fire unlock karne ke liye <b>{required} Points</b> chahiye!\n(Aapke paas: {points} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
             return
 
-        new_points = points - required
+        new_points = points
+        if not is_unlimited:
+            new_points -= required
+
         firebase_patch(f"users/{user_id}", {"points": new_points, "unlocked_free_fire": True})
 
         try:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("📥 Download APK & Files", url=FREE_FIRE_APK_LINK))
+            markup.add(types.InlineKeyboardButton("🎥 Watch Setup Video", url=FREE_FIRE_VIDEO_LINK))
+            
             bot.send_message(
                 user_id,
                 "🎉 <b>Free Fire Package Unlocked Successfully!</b>\n\n"
-                "Niche aapki file aur setup video di gayi hai 👇\n"
-                "Paid features ke liye owner se contact karein: <b>@Memonsalim</b>",
-                parse_mode="HTML"
-            )
-            # Using placeholder file/video messaging structure handled safely
-            bot.send_message(
-                user_id,
-                "📁 <b>Free Fire Files & Video Package Sent Successfully!</b>\n"
-                "Paid features ya full access ke liye owner **@Memonsalim** se contact karein.",
+                "Niche diye gaye buttons par click karke aap file download kar sakte hain aur video dekh sakte hain 👇\n\n"
+                "💬 <b>Paid features ke liye owner se contact karein:</b>\n👉 <b>@Memonsalim</b>",
                 parse_mode="HTML",
-                reply_markup=main_keyboard()
+                reply_markup=markup
             )
         except Exception:
             bot.send_message(
                 user_id,
-                "📁 <b>Free Fire Files & Video Link Sent Successfully!</b>\n"
-                "Agar koi dikkat aaye toh owner **@Memonsalim** se contact karein.",
+                "🎉 <b>Free Fire Unlocked!</b>\n"
+                f"📥 Download Link: {FREE_FIRE_APK_LINK}\n\n"
+                "Paid features ke liye owner **@Memonsalim** se contact karein.",
                 parse_mode="HTML",
                 reply_markup=main_keyboard()
             )
@@ -421,4 +449,4 @@ if __name__ == "__main__":
     load_bot_username()
     threading.Thread(target=send_startup_broadcast, daemon=True).start()
     start_bot()
-    
+            
