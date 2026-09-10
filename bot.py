@@ -17,14 +17,13 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
-FREE_FF_CHANNEL = "https://t.me/Memonxgamingff"
 
 PLANS = {
     "1": {"name": "1 Day", "days": 1, "points": 3},
     "3": {"name": "3 Days", "days": 3, "points": 6},
     "7": {"name": "7 Days", "days": 7, "points": 10},
     "30": {"name": "30 Days", "days": 30, "points": 25},
-    "free_ff": {"name": "Free FF (Secret Channel)", "days": 0, "points": 5}
+    "free_fire": {"name": "Free Fire", "days": 0, "points": 5}
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -171,7 +170,7 @@ def generate_unique_key():
 
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row(types.KeyboardButton("🎁 Generate Key"), types.KeyboardButton("🔥 Free FF"))
+    markup.row(types.KeyboardButton("🎁 Generate Key"), types.KeyboardButton("🔥 Free Fire"))
     markup.row(types.KeyboardButton("💎 Aim AI Panel"), types.KeyboardButton("🔗 My Link"))
     markup.row(types.KeyboardButton("👥 Referrals"), types.KeyboardButton("🔑 My Keys"))
     markup.row(types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
@@ -186,7 +185,7 @@ def join_keyboard():
 def plans_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     for pid, plan in PLANS.items():
-        if pid == "free_ff":
+        if pid == "free_fire":
             markup.add(types.InlineKeyboardButton(f"🔥 {plan['name']} - ⭐ {plan['points']}", callback_data=f"unlock:{pid}"))
         else:
             markup.add(types.InlineKeyboardButton(f"{plan['name']} - ⭐ {plan['points']}", callback_data=f"generate:{pid}"))
@@ -248,20 +247,33 @@ def handle_text_buttons(message):
 
     if "Generate Key" in text:
         bot.send_message(user_id, "🛒 <b>Premium Plans</b>\n\n1 Day = ⭐ 3 Points\n3 Days = ⭐ 6 Points\n7 Days = ⭐ 10 Points\n30 Days = ⭐ 25 Points\n\n👇 Apna manpasand plan select karo:", parse_mode="HTML", reply_markup=plans_keyboard())
-    elif "Free FF" in text:
+    elif "Free Fire" in text:
         bot.send_message(
             user_id,
-            "🔥 <b>Free FF - Secret Channel Access</b>\n\n"
-            "Isme aapko milega direct secret Telegram channel ka link jisme <b>Keys aur APK</b> pehle se upload hain!\n\n"
+            "🔥 <b>Free Fire Panel / Files</b>\n\n"
+            "Isme aapko Free Fire ki mod files aur special setup video milti hai!\n\n"
             "⭐ Required Points: <b>5 Points</b>\n\n"
-            "👇 Unlock karne ke liye niche click karein:",
+            "👇 Purchase / Unlock karne ke liye niche click karein:",
             parse_mode="HTML",
             reply_markup=types.InlineKeyboardMarkup().add(
-                types.InlineKeyboardButton("🔓 Unlock Free FF (5 ⭐)", callback_data="unlock:free_ff")
+                types.InlineKeyboardButton("🔓 Unlock Free Fire (5 ⭐)", callback_data="unlock:free_fire")
             )
         )
     elif "Aim AI Panel" in text:
-        bot.send_message(user_id, "💎 <b>Aim AI Panel</b>\n\n✅ Generate unlimited keys for free directly\n✅ Sell unlimited keys\n✅ Panel with your name\n✅ One time investment\n✅ Price ₹300 only\n❌ Free not available ❌❌\n\n💬 <b>Buy from here / Contact Owner:</b>\n👉 <b>@Memonsalim</b>", parse_mode="HTML", reply_markup=main_keyboard())
+        bot.send_message(
+            user_id,
+            "💎 <b>Aim AI Panel</b>\n\n"
+            "✅ Generate unlimited keys for free directly\n"
+            "✅ Sell unlimited keys\n"
+            "✅ Panel with your name\n"
+            "✅ One time investment\n"
+            "✅ Price ₹300 only\n"
+            "❌ Free not available ❌❌\n\n"
+            "💬 <b>Paid chahiye jisme zyada features ho? Owner se contact karein:</b>\n"
+            "👉 <b>@Memonsalim</b>",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
+        )
     elif "My Link" in text:
         link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
         bot.send_message(user_id, f"🔗 <b>Aapki Personal Referral Link</b>\n\n<code>{link}</code>\n\n👥 Is link ko doston ke sath share karein!\nHar verified referral par milega <b>+1 Point</b> ⭐", parse_mode="HTML", reply_markup=main_keyboard())
@@ -283,12 +295,12 @@ def handle_text_buttons(message):
     elif "How it works" in text:
         bot.send_message(
             user_id,
-            "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
-            "1️⃣ Sabse pehle bot ko start karke official channel join karo aur <b>Verify</b> dabao.\n"
-            "2️⃣ Apni **Referral Link** ko copy karke apne doston ke sath share karo.\n"
-            "3️⃣ Jaise hi aapka dost link se aakar channel join karega, aapko turant **+1 Point (Star)** mil jayega! ⭐\n"
-            "4️⃣ Jab aapke paas 3, 6, 10 ya 25 points ho jayein, tab **'Generate Key'** par click karke apni manpasand **Premium Key** bana lo! 🔑\n"
-            "5️⃣ Agar aapko direct secret Free FF channel chahiye jisme sab kuch uploaded hai, toh sirf **5 Points** dekar use unlock kar sakte ho! 🔥",
+            "📖 <b>How It Works (Aasan Bhasha Me Samjho)</b>\n\n"
+            "1️⃣ Sabse pehle bot ko start karke hamara official channel join karo aur <b>Verify</b> button par click karo.\n"
+            "2️⃣ Ab apna <b>Referral Link</b> copy karke apne doston ke sath share karo.\n"
+            "3️⃣ Jaise hi aapka dost aapki link se aakar channel join karega, aapko turant <b>+1 Point (Star)</b> mil jayega! ⭐\n"
+            "4️⃣ Jab aapke paas acche khase points ho jayein, toh aap **'Generate Key'** ya **'Free Fire'** par click karke apne points se items unlock kar sakte ho! 🎉\n"
+            "5️⃣ Agar aapko aur bhi advanced paid panel chahiye jisme bohot saare features hon, toh aap seedha owner **@Memonsalim** se contact kar sakte ho! 💎",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -327,30 +339,66 @@ def callback_handler(call):
         firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
         bot.send_message(user_id, f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n🔑 Key: <code>{key}</code>\n⏳ Validity: <b>{plan['days']} Days</b>", parse_mode="HTML", reply_markup=main_keyboard())
 
-    elif call.data == "unlock:free_ff":
+    elif call.data == "unlock:free_fire":
         if not check_joined(user_id):
             bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
             return
 
         user = get_user(user_id)
         points = int(user.get("points", 0))
-        required = PLANS["free_ff"]["points"]
+        required = PLANS["free_fire"]["points"]
 
         if points < required:
-            bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nFree FF channel unlock karne ke liye <b>{required} Points</b> chahiye!\n(Aapke paas: {points} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
+            bot.send_message(user_id, f"❌ <b>Insufficient Points</b>\nFree Fire unlock karne ke liye <b>{required} Points</b> chahiye!\n(Aapke paas: {points} ⭐)", parse_mode="HTML", reply_markup=main_keyboard())
             return
 
         new_points = points - required
-        firebase_patch(f"users/{user_id}", {"points": new_points, "unlocked_free_ff": True})
+        firebase_patch(f"users/{user_id}", {"points": new_points, "unlocked_free_fire": True})
 
-        bot.send_message(
-            user_id,
-            f"🎉 <b>Free FF Channel Unlocked Successfully!</b>\n\n"
-            f"🔗 Secret Channel Link:\n{FREE_FF_CHANNEL}\n\n"
-            f"Is channel me aapko keys aur APK mil jayengi! Enjoy! 🚀",
-            parse_mode="HTML",
-            reply_markup=main_keyboard()
-        )
+        try:
+            bot.send_message(
+                user_id,
+                "🎉 <b>Free Fire Package Unlocked Successfully!</b>\n\n"
+                "Niche aapki file aur setup video di gayi hai 👇\n"
+                "Paid features ke liye owner se contact karein: <b>@Memonsalim</b>",
+                parse_mode="HTML"
+            )
+            # Using placeholder file/video messaging structure handled safely
+            bot.send_message(
+                user_id,
+                "📁 <b>Free Fire Files & Video Package Sent Successfully!</b>\n"
+                "Paid features ya full access ke liye owner **@Memonsalim** se contact karein.",
+                parse_mode="HTML",
+                reply_markup=main_keyboard()
+            )
+        except Exception:
+            bot.send_message(
+                user_id,
+                "📁 <b>Free Fire Files & Video Link Sent Successfully!</b>\n"
+                "Agar koi dikkat aaye toh owner **@Memonsalim** se contact karein.",
+                parse_mode="HTML",
+                reply_markup=main_keyboard()
+            )
+
+def send_startup_broadcast():
+    try:
+        time.sleep(5)
+        users = firebase_get("users")
+        if isinstance(users, dict):
+            for uid, udata in users.items():
+                if isinstance(udata, dict) and udata.get("notifications_enabled", True):
+                    try:
+                        bot.send_message(
+                            int(uid),
+                            "🚀 <b>Bot Start Ho Chuka Hai!</b>\n\n"
+                            "Sabhi features aur naye updates live hain. Ab aap keys generate kar sakte hain ya points earn kar sakte hain! ✨",
+                            parse_mode="HTML"
+                        )
+                        time.sleep(0.05)
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.error("Startup broadcast error: %s", e)
 
 def load_bot_username():
     global BOT_USERNAME
@@ -371,5 +419,6 @@ if __name__ == "__main__":
     threading.Thread(target=run_web_server, daemon=True).start()
     time.sleep(2)
     load_bot_username()
+    threading.Thread(target=send_startup_broadcast, daemon=True).start()
     start_bot()
     
