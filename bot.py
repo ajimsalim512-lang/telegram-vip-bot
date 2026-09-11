@@ -21,8 +21,8 @@ OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
 
-# Aapki restart video ka direct Telegram link yahan set kar diya hai
-STARTUP_VIDEO_URL = "https://t.me/memonxgaming/1060"
+# Yahan apni video ka real file_id dalein (Bot ko video bhej kar file_id mil jayegi)
+INTRO_VIDEO_FILE_ID = os.getenv("INTRO_VIDEO_FILE_ID", "")
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
@@ -95,6 +95,7 @@ def create_user_if_missing(telegram_user):
             "first_name": telegram_user.first_name or "",
             "started": True,
             "notifications_enabled": True,
+            "intro_sent": False,
             "created_at": now,
             "last_seen": now
         }
@@ -113,6 +114,12 @@ def check_joined(user_id):
     except Exception as e:
         logger.error("Membership check error: %s", e)
         return False
+
+# Admin helper: If you send any video to the bot directly in chat, it gives you the file_id
+@bot.message_handler(content_types=['video'])
+def handle_video_upload(message):
+    file_id = message.video.file_id
+    bot.reply_to(message, f"🎥 <b>Video File ID Received!</b>\n\nCopy this ID:\n<code>{file_id}</code>", parse_mode="HTML")
 
 # =========================================================
 # KEYBOARDS
@@ -163,18 +170,36 @@ def bp8_keyboard():
 # HANDLERS
 # =========================================================
 
-def send_dashboard(message_or_user, extra_msg=""):
-    user_id = message_or_user.from_user.id if hasattr(message_or_user, "from_user") else message_or_user
+def send_welcome_intro(user_id, extra_msg=""):
     user = get_user(user_id)
     if not user:
         return
 
-    text = (f"{extra_msg}\n\n" if extra_msg else "") + (
+    caption = (f"{extra_msg}\n\n" if extra_msg else "") + (
         f"🔥 <b>AIM AI PANEL SPECIAL OFFER!</b> 🔥\n"
-        f"Get unlimited keys generate panel **only at ₹400**!\n\n"
+        f"Get unlimited keys generate panel <b>only at ₹400</b>!\n"
+        f"✅ Generate unlimited keys directly\n"
+        f"✅ Sell unlimited keys & panels\n\n"
+        f"💬 <b>Purchase ke liye contact karein (Wahin file aur video milegi):</b>\n"
+        f"• Telegram: <b>{OWNER_CONTACT}</b>\n"
+        f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>\n\n"
         f"👇 Niche diye gaye options me se apna manpasand game ya offer select karein:"
     )
-    bot.send_message(user_id, text, parse_mode="HTML", reply_markup=main_keyboard())
+
+    # Send video only once if not already sent, or fallback to text safely
+    if not user.get("intro_sent", False):
+        try:
+            if INTRO_VIDEO_FILE_ID:
+                bot.send_video(user_id, INTRO_VIDEO_FILE_ID, caption=caption, parse_mode="HTML", reply_markup=main_keyboard())
+            else:
+                bot.send_message(user_id, caption, parse_mode="HTML", reply_markup=main_keyboard())
+            firebase_patch(f"users/{user_id}", {"intro_sent": True})
+            return
+        except Exception:
+            pass
+
+    # Standard dashboard message if intro already sent
+    bot.send_message(user_id, caption, parse_mode="HTML", reply_markup=main_keyboard())
 
 @bot.message_handler(commands=["start"])
 def start_command(message):
@@ -192,7 +217,7 @@ def start_command(message):
         )
         return
 
-    send_dashboard(message, "🎉 <b>Verification Successful!</b>")
+    send_welcome_intro(user_id, "🎉 <b>Verification Successful!</b>")
 
 @bot.callback_query_handler(func=lambda call: call.data == "verify")
 def verify_callback(call):
@@ -204,7 +229,7 @@ def verify_callback(call):
         return
 
     bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
-    send_dashboard(call.message, "🎉 <b>Aapka bot ready hai!</b>")
+    send_welcome_intro(user_id, "🎉 <b>Aapka bot ready hai!</b>")
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_buttons(message):
@@ -229,7 +254,7 @@ def handle_text_buttons(message):
             "✅ Unlimited keys generate\n"
             "✅ No more pay for Aim AI\n"
             "✅ Sell unlimited keys & panels\n\n"
-            "💬 <b>Purchase ke liye contact karein:</b>\n"
+            f"💬 <b>Purchase ke liye contact karein (Wahin file aur video milegi):</b>\n"
             f"• Telegram: <b>{OWNER_CONTACT}</b>\n"
             f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
             parse_mode="HTML",
@@ -261,7 +286,7 @@ def handle_text_buttons(message):
             reply_markup=main_keyboard()
         )
     elif "Refresh" in text:
-        send_dashboard(message)
+        send_welcome_intro(user_id)
     elif "How it works" in text:
         bot.send_message(
             user_id,
@@ -281,7 +306,7 @@ def callback_handler(call):
     bot.answer_callback_query(call.id)
 
     if data == "refresh":
-        send_dashboard(call.message)
+        send_welcome_intro(user_id)
 
     elif data == "carrom:kos":
         bot.send_message(
@@ -366,7 +391,7 @@ def callback_handler(call):
     elif data == "bp8:kos":
         bot.send_message(
             user_id,
-            "🎱 <b>8BP - Kos Engine Price List</b>\n\n"
+            "🎱 8BP - Kos Engine Price List\n\n"
             "• 1 Day = ₹150\n"
             "• 3 Days = ₹250\n"
             "• 7 Days = ₹500\n"
@@ -377,39 +402,6 @@ def callback_handler(call):
             f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
             parse_mode="HTML"
         )
-
-def send_startup_broadcast():
-    try:
-        time.sleep(5)
-        users = firebase_get("users")
-        if isinstance(users, dict):
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            markup.add(types.KeyboardButton("/start"))
-            
-            for uid, udata in users.items():
-                if isinstance(udata, dict) and udata.get("notifications_enabled", True):
-                    try:
-                        # Send video with caption and /start button
-                        bot.send_video(
-                            int(uid),
-                            STARTUP_VIDEO_URL,
-                            caption="🔄 <b>Bot Restarted!</b>\n\nSabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
-                            reply_markup=markup
-                        )
-                    except Exception:
-                        try:
-                            bot.send_message(
-                                int(uid),
-                                "🔄 <b>Bot Restarted!</b>\n\n"
-                                "Sabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
-                                parse_mode="HTML",
-                                reply_markup=markup
-                            )
-                        except Exception:
-                            pass
-                    time.sleep(0.05)
-    except Exception as e:
-        logger.error("Startup broadcast error: %s", e)
 
 def load_bot_username():
     global BOT_USERNAME
@@ -430,6 +422,5 @@ if __name__ == "__main__":
     threading.Thread(target=run_web_server, daemon=True).start()
     time.sleep(2)
     load_bot_username()
-    threading.Thread(target=send_startup_broadcast, daemon=True).start()
     start_bot()
     
