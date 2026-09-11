@@ -21,8 +21,8 @@ OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
 
-# Yahan apni real video ka file_id dalna jab bot se mil jaye
-STARTUP_VIDEO_FILE_ID = os.getenv("STARTUP_VIDEO_FILE_ID", "")
+# Aapki restart video ka direct Telegram link yahan set kar diya hai
+STARTUP_VIDEO_URL = "https://t.me/memonxgaming/1060"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
@@ -113,13 +113,6 @@ def check_joined(user_id):
     except Exception as e:
         logger.error("Membership check error: %s", e)
         return False
-
-# Helper to get file_id when user sends video to bot
-@bot.message_handler(content_types=['video'])
-def handle_video_upload(message):
-    user_id = message.from_user.id
-    file_id = message.video.file_id
-    bot.reply_to(message, f"🎥 <b>Video Received!</b>\n\nYour Video File ID:\n<code>{file_id}</code>", parse_mode="HTML")
 
 # =========================================================
 # KEYBOARDS
@@ -396,14 +389,15 @@ def send_startup_broadcast():
             for uid, udata in users.items():
                 if isinstance(udata, dict) and udata.get("notifications_enabled", True):
                     try:
-                        if STARTUP_VIDEO_FILE_ID:
-                            bot.send_video(
-                                int(uid),
-                                STARTUP_VIDEO_FILE_ID,
-                                caption="🔄 <b>Bot Restarted!</b>\n\nSabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
-                                reply_markup=markup
-                            )
-                        else:
+                        # Send video with caption and /start button
+                        bot.send_video(
+                            int(uid),
+                            STARTUP_VIDEO_URL,
+                            caption="🔄 <b>Bot Restarted!</b>\n\nSabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
+                            reply_markup=markup
+                        )
+                    except Exception:
+                        try:
                             bot.send_message(
                                 int(uid),
                                 "🔄 <b>Bot Restarted!</b>\n\n"
@@ -411,8 +405,8 @@ def send_startup_broadcast():
                                 parse_mode="HTML",
                                 reply_markup=markup
                             )
-                    except Exception:
-                        pass
+                        except Exception:
+                            pass
                     time.sleep(0.05)
     except Exception as e:
         logger.error("Startup broadcast error: %s", e)
@@ -438,4 +432,4 @@ if __name__ == "__main__":
     load_bot_username()
     threading.Thread(target=send_startup_broadcast, daemon=True).start()
     start_bot()
-        
+    
