@@ -21,6 +21,9 @@ OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
 
+# Yahan apni real video ka file_id dalna jab bot se mil jaye
+STARTUP_VIDEO_FILE_ID = os.getenv("STARTUP_VIDEO_FILE_ID", "")
+
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -110,6 +113,13 @@ def check_joined(user_id):
     except Exception as e:
         logger.error("Membership check error: %s", e)
         return False
+
+# Helper to get file_id when user sends video to bot
+@bot.message_handler(content_types=['video'])
+def handle_video_upload(message):
+    user_id = message.from_user.id
+    file_id = message.video.file_id
+    bot.reply_to(message, f"🎥 <b>Video Received!</b>\n\nYour Video File ID:\n<code>{file_id}</code>", parse_mode="HTML")
 
 # =========================================================
 # KEYBOARDS
@@ -265,7 +275,7 @@ def handle_text_buttons(message):
             "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
             "1️⃣ Sabse pehle bot start karke official channel join karein aur Verify dabayein.\n"
             "2️⃣ Menu se apna game ya **Aim AI Offer (₹400)** select karein.\n"
-            "3️⃣ Owner **{OWNER_CONTACT}** ya WhatsApp **{WHATSAPP_NUMBER}** par contact karke paid purchase karein (wahin aapko file aur video mil jayegi)!\n"
+            f"3️⃣ Owner **{OWNER_CONTACT}** ya WhatsApp **{WHATSAPP_NUMBER}** par contact karke paid purchase karein (wahin aapko file aur video mil jayegi)!\n"
             "🛡️ Trust ke liye **Trust Proof** button check kar sakte hain.",
             parse_mode="HTML",
             reply_markup=main_keyboard()
@@ -386,15 +396,14 @@ def send_startup_broadcast():
             for uid, udata in users.items():
                 if isinstance(udata, dict) and udata.get("notifications_enabled", True):
                     try:
-                        # Send restart notification video with caption, text, and /start button
-                        bot.send_video(
-                            int(uid),
-                            "BAACAgUAAxkBAAIBV2...", # Managed placeholder mapping safely to prevent crashes
-                            caption="🔄 <b>Bot Restarted!</b>\n\nSabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
-                            reply_markup=markup
-                        )
-                    except Exception:
-                        try:
+                        if STARTUP_VIDEO_FILE_ID:
+                            bot.send_video(
+                                int(uid),
+                                STARTUP_VIDEO_FILE_ID,
+                                caption="🔄 <b>Bot Restarted!</b>\n\nSabhi naye offers aur prices live hain. Niche /start dabakar bot use karein 👇",
+                                reply_markup=markup
+                            )
+                        else:
                             bot.send_message(
                                 int(uid),
                                 "🔄 <b>Bot Restarted!</b>\n\n"
@@ -402,8 +411,8 @@ def send_startup_broadcast():
                                 parse_mode="HTML",
                                 reply_markup=markup
                             )
-                        except Exception:
-                            pass
+                    except Exception:
+                        pass
                     time.sleep(0.05)
     except Exception as e:
         logger.error("Startup broadcast error: %s", e)
@@ -429,4 +438,4 @@ if __name__ == "__main__":
     load_bot_username()
     threading.Thread(target=send_startup_broadcast, daemon=True).start()
     start_bot()
-                         
+        
