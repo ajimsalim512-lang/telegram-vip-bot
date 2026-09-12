@@ -17,10 +17,12 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
+NINJA_APK_LINK = "https://t.me/memonxgaming/1060"
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
 
+INTRO_VIDEO_FILE_ID = os.getenv("INTRO_VIDEO_FILE_ID", "")
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
 FREE_PLANS = {
@@ -104,6 +106,8 @@ def create_user_if_missing(telegram_user, referrer_id=None):
             "unlimited_access": False,
             "started": True,
             "notifications_enabled": True,
+            "intro_sent": False,
+            "ninja_ref_count": 0,
             "created_at": now,
             "last_seen": now,
             "keys": {},
@@ -145,11 +149,13 @@ def reward_referrer_once(referred_id):
 
     old_points = int(referrer.get("points", 0))
     old_referrals = int(referrer.get("referrals", 0))
+    ninja_refs = int(referrer.get("ninja_ref_count", 0))
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     firebase_patch(f"users/{referrer_id}", {
         "points": old_points + 1,
         "referrals": old_referrals + 1,
+        "ninja_ref_count": ninja_refs + 1,
         f"referral_rewards/{referred_id}": {"rewarded_at": now}
     })
 
@@ -172,6 +178,11 @@ def generate_unique_key():
             return key
     return None
 
+@bot.message_handler(content_types=['video'])
+def handle_video_upload(message):
+    file_id = message.video.file_id
+    bot.reply_to(message, f"🎥 <b>Video File ID Received!</b>\n\nCopy this ID into code:\n<code>{file_id}</code>", parse_mode="HTML")
+
 # =========================================================
 # KEYBOARDS
 # =========================================================
@@ -179,16 +190,16 @@ def generate_unique_key():
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🎁 Free Aim AI"), types.KeyboardButton("💳 Purchase Aim AI"))
-    markup.row(types.KeyboardButton("💎 Purchase Aim AI Panel"), types.KeyboardButton("🔗 My Link"))
-    markup.row(types.KeyboardButton("👥 Referrals"), types.KeyboardButton("🔑 My Keys"))
-    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🔄 Refresh"))
-    markup.row(types.KeyboardButton("ℹ️ How it works"))
+    markup.row(types.KeyboardButton("💎 Purchase Aim AI Panel"), types.KeyboardButton("🥷 Ninja 8BP"))
+    markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 Referrals"))
+    markup.row(types.KeyboardButton("🔑 My Keys"), types.KeyboardButton("🛡️ Trust Proof"))
+    markup.row(types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
     return markup
 
 def join_keyboard():
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📢 Join Channel", url=CHANNEL_LINK))
-    markup.add(types.InlineKeyboardButton("✅ Verify", callback_data="verify"))
+    markup.add(types.InlineKeyboardButton("📢 Join Official Channel", url=CHANNEL_LINK))
+    markup.add(types.InlineKeyboardButton("✅ Verify Joining", callback_data="verify"))
     return markup
 
 def free_plans_keyboard():
@@ -202,23 +213,29 @@ def free_plans_keyboard():
 # HANDLERS
 # =========================================================
 
-def send_dashboard(message_or_user, extra_msg=""):
-    user_id = message_or_user.from_user.id if hasattr(message_or_user, "from_user") else message_or_user
+def send_welcome_intro(user_id, extra_msg=""):
     user = get_user(user_id)
     if not user:
         return
 
-    points = int(user.get("points", 0))
-    referrals = int(user.get("referrals", 0))
-
-    text = (f"{extra_msg}\n\n" if extra_msg else "") + (
-        f"🏆 <b>Aapka Rewards Dashboard</b>\n\n"
-        f"⭐ Total Points: <b>{points}</b>\n"
-        f"👥 Verified Referrals: <b>{referrals}</b>\n\n"
-        f"✨ <i>Free Aim AI key generate karne ke liye points earn karein!</i> 🚀\n\n"
-        f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}"
+    caption = (f"{extra_msg}\n\n" if extra_msg else "") + (
+        f"🔥 <b>AIM AI PANEL & FREE AIM AI BOT!</b> 🔥\n"
+        f"Free me Aim AI keys lene ke liye friends ko refer karein, ya direct purchase karein.\n\n"
+        f"👇 Niche diye gaye options me se apna manpasand feature select karein:"
     )
-    bot.send_message(user_id, text, parse_mode="HTML", reply_markup=main_keyboard())
+
+    if not user.get("intro_sent", False):
+        try:
+            if INTRO_VIDEO_FILE_ID:
+                bot.send_video(user_id, INTRO_VIDEO_FILE_ID, caption=caption, parse_mode="HTML", reply_markup=main_keyboard())
+            else:
+                bot.send_message(user_id, caption, parse_mode="HTML", reply_markup=main_keyboard())
+            firebase_patch(f"users/{user_id}", {"intro_sent": True})
+            return
+        except Exception:
+            pass
+
+    bot.send_message(user_id, caption, parse_mode="HTML", reply_markup=main_keyboard())
 
 @bot.message_handler(commands=["start"])
 def start_command(message):
@@ -232,15 +249,15 @@ def start_command(message):
         bot.send_message(
             user_id,
             f"👋 <b>Welcome {message.from_user.first_name}!</b>\n\n"
-            f"Bot use karne ke liye pehle official channel join karo.\n\n"
-            f"👇 Join karne ke baad <b>Verify</b> dabao.",
+            f"⚠️ Bot aur refer system use karne ke liye pehle hamara <b>Telegram Channel join karna compulsory hai</b>, warna yeh work nahi karega!\n\n"
+            f"👇 Channel join karne ke baad <b>Verify Joining</b> dabao.",
             parse_mode="HTML",
             reply_markup=join_keyboard()
         )
         return
 
     reward_referrer_once(user_id)
-    send_dashboard(message, "🎉 <b>Verification Successful!</b>")
+    send_welcome_intro(user_id, "🎉 <b>Verification Successful!</b>")
 
 @bot.callback_query_handler(func=lambda call: call.data == "verify")
 def verify_callback(call):
@@ -248,12 +265,17 @@ def verify_callback(call):
     bot.answer_callback_query(call.id)
 
     if not check_joined(user_id):
-        bot.send_message(user_id, "❌ <b>Verification Failed</b>\nAapne abhi channel join nahi kiya hai.", parse_mode="HTML", reply_markup=join_keyboard())
+        bot.send_message(
+            user_id,
+            "❌ <b>Verification Failed</b>\n\nAapne abhi tak channel join nahi kiya hai! Pehle channel join karein warna kuch work nahi karega.",
+            parse_mode="HTML",
+            reply_markup=join_keyboard()
+        )
         return
 
     reward_referrer_once(user_id)
     bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
-    send_dashboard(call.message, "🎉 <b>Aapka bot ready hai!</b>")
+    send_welcome_intro(user_id, "🎉 <b>Aapka bot ready hai!</b>")
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_buttons(message):
@@ -266,8 +288,14 @@ def handle_text_buttons(message):
         bot.send_message(user_id, "👑 <b>Secret Admin Access Activated!</b>", parse_mode="HTML", reply_markup=main_keyboard())
         return
 
+    # Force Channel Join Check for ALL Actions
     if not check_joined(user_id):
-        bot.send_message(user_id, "⚠️ Bot use karne ke liye pehle official channel join karein.", reply_markup=join_keyboard())
+        bot.send_message(
+            user_id,
+            "⚠️ <b>Access Denied!</b>\n\nBot ko use karne ya refer system chalane ke liye pehle official Telegram Channel join karna compulsory hai!",
+            parse_mode="HTML",
+            reply_markup=join_keyboard()
+        )
         return
 
     if "Free Aim AI" in text:
@@ -306,6 +334,17 @@ def handle_text_buttons(message):
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
+    elif "Ninja 8BP" in text:
+        user = get_user(user_id)
+        ninja_count = user.get("ninja_ref_count", 0) if user else 0
+        markup = types.InlineKeyboardMarkup()
+        if ninja_count >= 10:
+            markup.add(types.InlineKeyboardButton("📥 Download APK File Only", url=NINJA_APK_LINK))
+            msg = f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\nAapne 10 refers successfully complete kar liye hain ({ninja_count}/10). Niche button se sirf APK file download karein 👇"
+        else:
+            msg = f"🥷 <b>Ninja 8BP - Free APK Offer</b>\n\nTotal 10 refers complete karne par aapko sirf APK file free me milegi (Channel join compulsory hai)!\n\n👥 Aapke current refers: <b>{ninja_count}/10</b>\n\n💡 Apni referral link se doston ko invite karein!"
+        
+        bot.send_message(user_id, msg, parse_mode="HTML", reply_markup=markup)
     elif "My Link" in text:
         link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
         bot.send_message(
@@ -313,7 +352,7 @@ def handle_text_buttons(message):
             f"🔗 <b>Aapki Personal Referral Link</b>\n\n"
             f"<code>{link}</code>\n\n"
             f"👥 Is link ko doston ke sath share karein!\n"
-            f"Har ek verified referral par aapko milega <b>+1 Point</b> ⭐",
+            f"Har ek verified referral par (jo channel join karega) aapko milega <b>+1 Point</b> ⭐",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -349,13 +388,13 @@ def handle_text_buttons(message):
             reply_markup=main_keyboard()
         )
     elif "Refresh" in text:
-        send_dashboard(message)
+        send_welcome_intro(user_id)
     elif "How it works" in text:
         bot.send_message(
             user_id,
             "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
-            "1️⃣ Bot start karke official channel join karein aur Verify dabayein.\n"
-            "2️⃣ Apni **Referral Link** doston ke sath share karke points earn karein.\n"
+            "1️⃣ Bot start karne ke liye official Telegram channel join karna compulsory hai.\n"
+            "2️⃣ Apni **Referral Link** doston ke sath share karke points earn karein (1 Refer = 1 Point).\n"
             "3️⃣ Free Aim AI ke liye points use karein, ya phir direct paid purchase ke liye **{OWNER_CONTACT}** par contact karein!",
             parse_mode="HTML",
             reply_markup=main_keyboard()
@@ -368,12 +407,17 @@ def callback_handler(call):
     bot.answer_callback_query(call.id)
 
     if data == "refresh":
-        send_dashboard(call.message)
+        send_welcome_intro(user_id)
 
     elif data.startswith("freegen:"):
         plan_id = data.split(":", 1)[1]
         if not check_joined(user_id):
-            bot.send_message(user_id, "❌ Pehle channel join karke Verify karo.", reply_markup=join_keyboard())
+            bot.send_message(
+                user_id,
+                "❌ <b>Access Denied</b>\n\nPehle official channel join karein warna key generate nahi hogi!",
+                parse_mode="HTML",
+                reply_markup=join_keyboard()
+            )
             return
         
         user = get_user(user_id)
@@ -402,7 +446,10 @@ def callback_handler(call):
             return
 
         new_points = points - plan["points"]
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        
+        # UTC timezone sync to fix expiration issues
+        now_utc = datetime.now(timezone.utc)
+        created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
 
         key_data = {
             "key": key,
@@ -411,7 +458,7 @@ def callback_handler(call):
             "user_id": str(user_id),
             "days": plan["days"],
             "status": "active",
-            "created_at": now
+            "created_at": created_at_str
         }
 
         if not firebase_put(f"keys/{key}", key_data):
@@ -451,4 +498,4 @@ if __name__ == "__main__":
     time.sleep(2)
     load_bot_username()
     start_bot()
-    
+        
