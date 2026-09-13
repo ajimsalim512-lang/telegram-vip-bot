@@ -11,9 +11,6 @@ import telebot
 from telebot import types
 from flask import Flask, jsonify
 
-# =========================================================
-# CONFIGURATION
-# =========================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8803139822:AAEYtk1w5AGhzbuCHUsFzGGRg8iW-rOGl0M")
 FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL")
 FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app").rstrip("/")
@@ -36,23 +33,17 @@ FREE_PLANS = {
     "lifetime": {"name": "Lifetime + Free Panel", "days": 3650, "points": 100}
 }
 
-# =========================================================
-# LOGGING SETUP
-# =========================================================
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("premium-bot")
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
-BOT_USERNAME = "Free_Aim_Ai_Bot"
+BOT_USERNAME = ""
 
-# =========================================================
-# FLASK KEEP-ALIVE SERVER
-# =========================================================
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Premium Key Bot is running successfully."
+    return "Premium Key Bot is running."
 
 @app.route("/health")
 def health():
@@ -69,9 +60,6 @@ def run_web_server():
     except Exception as e:
         logger.error("Flask server error: %s", e)
 
-# =========================================================
-# FIREBASE HELPERS
-# =========================================================
 def firebase_url(path=""):
     path = path.strip("/")
     url = f"{FIREBASE_URL}/{path}.json" if path else f"{FIREBASE_URL}/.json"
@@ -212,7 +200,7 @@ def handle_media_upload(message):
             file_id = message.document.file_id
             bot.reply_to(message, f"📁 <b>Document/APK File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
     except Exception as e:
-        logger.error("Media upload handler error: %s", e)
+        logger.error("Media upload error: %s", e)
 
 # =========================================================
 # KEYBOARDS
@@ -470,4 +458,20 @@ def handle_text_buttons(message):
                 parse_mode="HTML",
                 reply_markup=main_keyboard()
             )
-    ex
+    except Exception as e:
+        logger.error("handle_text_buttons error: %s", e)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("freegen:"))
+def freegen_callback(call):
+    try:
+        user_id = call.from_user.id
+        data = call.data
+        bot.answer_callback_query(call.id)
+
+        plan_id = data.split(":", 1)[1]
+        if not check_joined(user_id):
+            bot.send_message(
+                user_id,
+                "❌ <b>Access Denied</b>\n\nPehle official channel join karein warna key generate nahi hogi!",
+                parse_mode="HTML",
+              
