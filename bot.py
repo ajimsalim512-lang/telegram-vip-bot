@@ -8,16 +8,13 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 from flask import Flask
-
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
 )
-
 from telegram.constants import ChatMemberStatus
-
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -29,57 +26,34 @@ from telegram.ext import (
 
 
 # ============================================================
-# AIM AI + NINJA 8BP TELEGRAM BOT
-# PART 1
+# CONFIGURATION
 # ============================================================
 
-# IMPORTANT:
-# The credentials originally supplied in chat are exposed.
-# Rotate them before production deployment.
-#
-# Set the rotated values directly below.
-#
-# Example:
-# BOT_TOKEN = "ROTATED_BOT_TOKEN"
-# FIREBASE_AUTH = "ROTATED_FIREBASE_AUTH"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
-
-BOT_TOKEN = "REPLACE_WITH_ROTATED_BOT_TOKEN"
-
-FIREBASE_AUTH = "REPLACE_WITH_ROTATED_FIREBASE_AUTH"
+FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "").strip()
 
 FIREBASE_DB_URL = (
-    "https://aimai-817ef-default-rtdb."
-    "asia-southeast1.firebasedatabase.app"
+    "https://aimai-817ef-default-rtdb.asia-southeast1."
+    "firebasedatabase.app"
 )
 
 OFFICIAL_CHANNEL = "@novaengine01"
+OFFICIAL_CHANNEL_LINK = "https://t.me/novaengine01"
 
-OFFICIAL_CHANNEL_LINK = (
-    "https://t.me/novaengine01"
-)
-
-APP_DOWNLOAD_LINK = (
-    "https://t.me/memonxgaming/1060"
-)
+APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
 
 OWNER_TELEGRAM = "@Memonsalim"
-
 OWNER_WHATSAPP = "+91 6354525228"
 
-TRUST_PROOF_CHANNEL = (
-    "https://t.me/proofnovaengine"
-)
+TRUST_PROOF_CHANNEL = "https://t.me/proofnovaengine"
 
-ADMIN_SECRET = (
-    "ROTATE_ADMIN_SECRET_BEFORE_PRODUCTION"
-)
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "").strip()
 
-NINJA_APK_PATH = "Ninja8BP.apk"
+# Screenshot mein jo APK filename hai:
+NINJA_APK_PATH = "Ninja_Engine_V2.1.apk"
 
-PORT = int(
-    os.getenv("PORT", "10000")
-)
+PORT = int(os.getenv("PORT", "10000"))
 
 
 # ============================================================
@@ -87,68 +61,81 @@ PORT = int(
 # ============================================================
 
 logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
-    format=(
-        "%(asctime)s | "
-        "%(levelname)s | "
-        "%(name)s | "
-        "%(message)s"
-    ),
 )
 
-logger = logging.getLogger("AimAI")
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
 # FLASK SERVER
 # ============================================================
 
-web_app = Flask(__name__)
+flask_app = Flask(__name__)
 
 
-@web_app.route("/")
-def web_home():
+@flask_app.route("/")
+def home_route():
     try:
-        return "Aim AI Bot is running.", 200
-    except Exception:
-        logger.exception("Home route error")
+        return "Aim AI Telegram Bot is running.", 200
+    except Exception as e:
+        logger.exception("Home route error: %s", e)
+        return "Server error", 500
+
+
+@flask_app.route("/health")
+def health_route():
+    try:
         return "OK", 200
+    except Exception as e:
+        logger.exception("Health route error: %s", e)
+        return "ERROR", 500
 
 
-@web_app.route("/health")
-def web_health():
+@flask_app.route("/ping")
+def ping_route():
     try:
-        return "OK", 200
-    except Exception:
-        logger.exception("Health route error")
-        return "OK", 200
+        return "PONG", 200
+    except Exception as e:
+        logger.exception("Ping route error: %s", e)
+        return "ERROR", 500
 
 
-@web_app.route("/ping")
-def web_ping():
+def run_flask():
     try:
-        return "pong", 200
-    except Exception:
-        logger.exception("Ping route error")
-        return "pong", 200
-
-
-def run_web_server():
-    try:
-        web_app.run(
+        flask_app.run(
             host="0.0.0.0",
             port=PORT,
             debug=False,
             use_reloader=False,
         )
-    except Exception:
-        logger.exception(
-            "Flask server stopped."
-        )
+    except Exception as e:
+        logger.exception("Flask server error: %s", e)
 
 
 # ============================================================
-# FIREBASE HELPERS
+# TIME HELPERS
+# ============================================================
+
+def utc_now():
+    try:
+        return datetime.now(timezone.utc)
+    except Exception as e:
+        logger.exception("utc_now error: %s", e)
+        return datetime.now(timezone.utc)
+
+
+def iso_now():
+    try:
+        return utc_now().isoformat()
+    except Exception as e:
+        logger.exception("iso_now error: %s", e)
+        return datetime.now(timezone.utc).isoformat()
+
+
+# ============================================================
+# FIREBASE REST HELPERS
 # ============================================================
 
 def firebase_url(path):
@@ -167,10 +154,8 @@ def firebase_url(path):
 
         return url
 
-    except Exception:
-        logger.exception(
-            "firebase_url failed"
-        )
+    except Exception as e:
+        logger.exception("firebase_url error: %s", e)
         return ""
 
 
@@ -190,11 +175,8 @@ def firebase_get(path):
 
         return response.json()
 
-    except Exception:
-        logger.exception(
-            "Firebase GET failed: %s",
-            path,
-        )
+    except Exception as e:
+        logger.exception("Firebase GET error [%s]: %s", path, e)
         return None
 
 
@@ -203,7 +185,7 @@ def firebase_put(path, data):
         url = firebase_url(path)
 
         if not url:
-            return None
+            return False
 
         response = requests.put(
             url,
@@ -213,14 +195,11 @@ def firebase_put(path, data):
 
         response.raise_for_status()
 
-        return response.json()
+        return True
 
-    except Exception:
-        logger.exception(
-            "Firebase PUT failed: %s",
-            path,
-        )
-        return None
+    except Exception as e:
+        logger.exception("Firebase PUT error [%s]: %s", path, e)
+        return False
 
 
 def firebase_patch(path, data):
@@ -228,7 +207,7 @@ def firebase_patch(path, data):
         url = firebase_url(path)
 
         if not url:
-            return None
+            return False
 
         response = requests.patch(
             url,
@@ -238,14 +217,32 @@ def firebase_patch(path, data):
 
         response.raise_for_status()
 
-        return response.json()
+        return True
 
-    except Exception:
-        logger.exception(
-            "Firebase PATCH failed: %s",
-            path,
+    except Exception as e:
+        logger.exception("Firebase PATCH error [%s]: %s", path, e)
+        return False
+
+
+def firebase_delete(path):
+    try:
+        url = firebase_url(path)
+
+        if not url:
+            return False
+
+        response = requests.delete(
+            url,
+            timeout=15,
         )
-        return None
+
+        response.raise_for_status()
+
+        return True
+
+    except Exception as e:
+        logger.exception("Firebase DELETE error [%s]: %s", path, e)
+        return False
 
 
 # ============================================================
@@ -254,58 +251,27 @@ def firebase_patch(path, data):
 
 def get_user(user_id):
     try:
-        return firebase_get(
-            "users/" + str(user_id)
-        )
-
-    except Exception:
-        logger.exception(
-            "get_user failed"
-        )
+        return firebase_get(f"users/{user_id}")
+    except Exception as e:
+        logger.exception("get_user error: %s", e)
         return None
 
 
 def create_user(tg_user):
     try:
-        user_id = tg_user.id
+        user_id = str(tg_user.id)
 
-        existing = get_user(
-            user_id
-        )
-
-        now = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        username = (
-            tg_user.username
-            or ""
-        )
-
-        first_name = (
-            tg_user.first_name
-            or ""
-        )
+        existing = get_user(user_id)
 
         if existing:
-            firebase_patch(
-                "users/" + str(user_id),
-                {
-                    "username": username,
-                    "first_name": first_name,
-                    "updated_at": now,
-                },
-            )
-
-            existing["username"] = username
-            existing["first_name"] = first_name
-
             return existing
 
+        now = iso_now()
+
         data = {
-            "telegram_id": user_id,
-            "username": username,
-            "first_name": first_name,
+            "telegram_id": tg_user.id,
+            "username": tg_user.username or "",
+            "first_name": tg_user.first_name or "",
             "points": 0,
             "referrals": 0,
             "ninja_ref_count": 0,
@@ -316,52 +282,37 @@ def create_user(tg_user):
         }
 
         firebase_put(
-            "users/" + str(user_id),
+            f"users/{user_id}",
             data,
         )
 
         return data
 
-    except Exception:
-        logger.exception(
-            "create_user failed"
-        )
+    except Exception as e:
+        logger.exception("create_user error: %s", e)
         return None
 
 
-def update_user(
-    user_id,
-    data,
-):
+def update_user(user_id, data):
     try:
-        data = dict(data)
-
-        data["updated_at"] = (
-            datetime.now(
-                timezone.utc
-            ).isoformat()
-        )
+        update_data = dict(data)
+        update_data["updated_at"] = iso_now()
 
         return firebase_patch(
-            "users/" + str(user_id),
-            data,
+            f"users/{user_id}",
+            update_data,
         )
 
-    except Exception:
-        logger.exception(
-            "update_user failed"
-        )
-        return None
+    except Exception as e:
+        logger.exception("update_user error: %s", e)
+        return False
 
 
 # ============================================================
 # MEMBERSHIP
 # ============================================================
 
-async def check_membership(
-    update,
-    context,
-):
+async def check_membership(update, context):
     try:
         user = update.effective_user
 
@@ -373,142 +324,147 @@ async def check_membership(
             user_id=user.id,
         )
 
-        allowed = {
+        allowed_statuses = {
             ChatMemberStatus.MEMBER,
             ChatMemberStatus.ADMINISTRATOR,
             ChatMemberStatus.OWNER,
         }
 
-        return member.status in allowed
+        return member.status in allowed_statuses
 
-    except Exception:
-        logger.exception(
-            "Membership check failed"
-        )
+    except Exception as e:
+        logger.exception("Membership check error: %s", e)
         return False
 
 
 def join_keyboard():
     try:
-        return InlineKeyboardMarkup(
+        buttons = [
             [
-                [
-                    InlineKeyboardButton(
-                        "📢 Join Official Channel",
-                        url=OFFICIAL_CHANNEL_LINK,
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "✅ Verify Joining",
-                        callback_data="verify_join",
-                    )
-                ],
-            ]
-        )
+                InlineKeyboardButton(
+                    "📢 Join Official Channel",
+                    url=OFFICIAL_CHANNEL_LINK,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "✅ Verify Joining",
+                    callback_data="verify_join",
+                )
+            ],
+        ]
 
-    except Exception:
-        logger.exception(
-            "join_keyboard failed"
-        )
+        return InlineKeyboardMarkup(buttons)
+
+    except Exception as e:
+        logger.exception("join_keyboard error: %s", e)
         return InlineKeyboardMarkup([])
 
 
-async def force_join(
-    update,
-    context,
-):
+async def force_join(update, context):
     try:
-        if await check_membership(
-            update,
-            context,
-        ):
+        joined = await check_membership(update, context)
+
+        if joined:
             return True
 
         text = (
-            "🔒 CHANNEL JOIN REQUIRED\n\n"
-            "Bot use karne ke liye pehle "
-            "official channel join karein.\n\n"
+            "🔒 <b>Channel Join Required</b>\n\n"
+            "Bot use karne se pehle hamare official channel ko "
+            "join karna mandatory hai.\n\n"
             "1️⃣ Join Official Channel\n"
-            "2️⃣ Channel join karein\n"
-            "3️⃣ Verify Joining press karein"
+            "2️⃣ Verify Joining\n"
         )
 
         if update.callback_query:
-            query = update.callback_query
-
-            await query.answer()
-
             try:
-                await query.edit_message_text(
-                    text,
-                    reply_markup=join_keyboard(),
-                )
+                await update.callback_query.answer()
             except Exception:
-                await query.message.reply_text(
-                    text,
-                    reply_markup=join_keyboard(),
-                )
+                pass
+
+            await update.callback_query.message.reply_text(
+                text,
+                reply_markup=join_keyboard(),
+                parse_mode="HTML",
+            )
 
         elif update.message:
             await update.message.reply_text(
                 text,
                 reply_markup=join_keyboard(),
+                parse_mode="HTML",
             )
 
         return False
 
-    except Exception:
-        logger.exception(
-            "force_join failed"
-        )
+    except Exception as e:
+        logger.exception("force_join error: %s", e)
         return False
 
 
 # ============================================================
-# REPLY KEYBOARD
+# KEYBOARDS
 # ============================================================
 
 def main_keyboard():
     try:
-        rows = [
-            [
-                "🎁 Free Aim AI",
-                "💳 Purchase Aim AI",
-            ],
-            [
-                "💎 Purchase Aim AI Panel",
-                "🥷 Ninja 8BP",
-            ],
-            [
-                "🔗 My Link",
-                "👥 Referrals",
-            ],
-            [
-                "🔑 My Keys",
-                "🛡️ Trust Proof",
-            ],
-            [
-                "🔄 Refresh",
-                "ℹ️ How it works",
-            ],
+        keyboard = [
+            ["🎁 Free Aim AI", "💳 Purchase Aim AI"],
+            ["💎 Purchase Aim AI Panel", "🥷 Ninja 8BP"],
+            ["🔗 My Link", "👥 Referrals"],
+            ["🔑 My Keys", "🛡️ Trust Proof"],
+            ["🔄 Refresh", "ℹ️ How it works"],
         ]
 
         return ReplyKeyboardMarkup(
-            rows,
+            keyboard,
             resize_keyboard=True,
             is_persistent=True,
         )
 
-    except Exception:
-        logger.exception(
-            "main_keyboard failed"
-        )
+    except Exception as e:
+        logger.exception("main_keyboard error: %s", e)
         return ReplyKeyboardMarkup([])
 
 
+def plan_keyboard():
+    try:
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "🔑 1 Day — 5 Points",
+                    callback_data="plan_1day",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔑 7 Days — 8 Points",
+                    callback_data="plan_7day",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔑 15 Days — 15 Points",
+                    callback_data="plan_15day",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "👑 Lifetime + Panel — 100 Points",
+                    callback_data="plan_lifetime",
+                )
+            ],
+        ]
+
+        return InlineKeyboardMarkup(keyboard)
+
+    except Exception as e:
+        logger.exception("plan_keyboard error: %s", e)
+        return InlineKeyboardMarkup([])
+
+
 # ============================================================
-# PLAN CONFIG
+# PLANS
 # ============================================================
 
 PLANS = {
@@ -517,19 +473,16 @@ PLANS = {
         "days": 1,
         "name": "1 Day",
     },
-
     "7day": {
         "points": 8,
         "days": 7,
         "name": "7 Days",
     },
-
     "15day": {
         "points": 15,
         "days": 15,
         "name": "15 Days",
     },
-
     "lifetime": {
         "points": 100,
         "days": None,
@@ -538,91 +491,36 @@ PLANS = {
 }
 
 
-def plan_keyboard():
-    try:
-        return InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🔑 1 Day — 5 Points",
-                        callback_data="plan_1day",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔑 7 Days — 8 Points",
-                        callback_data="plan_7day",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔑 15 Days — 15 Points",
-                        callback_data="plan_15day",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "♾️ Lifetime — 100 Points",
-                        callback_data="plan_lifetime",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🏠 Main Menu",
-                        callback_data="home",
-                    )
-                ],
-            ]
-        )
-
-    except Exception:
-        logger.exception(
-            "plan_keyboard failed"
-        )
-        return InlineKeyboardMarkup([])
-
-
 # ============================================================
-# KEY GENERATION
+# RANDOM KEY GENERATION
 # ============================================================
 
 def random_value(length):
     try:
-        alphabet = (
-            string.ascii_letters
-            + string.digits
-        )
+        alphabet = string.ascii_uppercase + string.digits
 
         return "".join(
             secrets.choice(alphabet)
             for _ in range(length)
         )
 
-    except Exception:
-        logger.exception(
-            "random_value failed"
-        )
-        raise
+    except Exception as e:
+        logger.exception("random_value error: %s", e)
+        return uuid.uuid4().hex.upper()
 
 
-def create_key(
-    plan_name,
-    days,
-):
+def create_key(plan_name, days):
     try:
-        now = datetime.now(
-            timezone.utc
-        )
+        now = utc_now()
 
         if days is None:
             expires_at = None
         else:
             expires_at = (
-                now
-                + timedelta(days=days)
+                now + timedelta(days=days)
             ).isoformat()
 
-        return {
+        record = {
             "id": uuid.uuid4().hex,
             "username": random_value(12),
             "password": random_value(18),
@@ -633,45 +531,31 @@ def create_key(
             "active": True,
         }
 
-    except Exception:
-        logger.exception(
-            "create_key failed"
-        )
-        raise
+        return record
+
+    except Exception as e:
+        logger.exception("create_key error: %s", e)
+        return None
 
 
-def save_key(
-    user_id,
-    record,
-):
+def save_key(user_id, record):
     try:
-        result = firebase_put(
-            "keys/{}/{}".format(
-                user_id,
-                record["id"],
-            ),
+        if not record:
+            return False
+
+        key_id = record.get("id")
+
+        if not key_id:
+            return False
+
+        return firebase_put(
+            f"keys/{user_id}/{key_id}",
             record,
         )
 
-        return result is not None
-
-    except Exception:
-        logger.exception(
-            "save_key failed"
-        )
-        return False
-
-
-# ============================================================
-# END PART 1
-# ============================================================
-# ============================================================
-# AIM AI + NINJA 8BP TELEGRAM BOT
-# PART 2
-# ============================================================
-
-
-# ============================================================
+    except Exception as e:
+        logger.exception("save_key error: %s", e)
+        return False# ============================================================
 # KEY VALIDATION
 # ============================================================
 
@@ -680,33 +564,25 @@ def key_is_valid(record):
         if not record:
             return False
 
-        if record.get("active") is not True:
+        if not record.get("active", False):
             return False
 
-        expires_at = record.get(
-            "expires_at"
-        )
+        expires_at = record.get("expires_at")
 
-        if not expires_at:
+        if expires_at is None:
             return True
 
         expiry = datetime.fromisoformat(
-            expires_at.replace(
-                "Z",
-                "+00:00",
-            )
+            str(expires_at).replace("Z", "+00:00")
         )
 
-        now = datetime.now(
-            timezone.utc
-        )
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
 
-        return now < expiry
+        return utc_now() < expiry
 
-    except Exception:
-        logger.exception(
-            "key_is_valid failed"
-        )
+    except Exception as e:
+        logger.exception("key_is_valid error: %s", e)
         return False
 
 
@@ -714,148 +590,137 @@ def key_is_valid(record):
 # SAFE REPLY
 # ============================================================
 
-async def safe_reply(
-    update,
-    text,
-):
+async def safe_reply(update, text, **kwargs):
     try:
         if update.message:
-            await update.message.reply_text(
+            return await update.message.reply_text(
                 text,
-                reply_markup=main_keyboard(),
+                **kwargs,
             )
 
-        elif update.callback_query:
-            await update.callback_query.message.reply_text(
+        if update.callback_query:
+            return await update.callback_query.message.reply_text(
                 text,
-                reply_markup=main_keyboard(),
+                **kwargs,
             )
 
-    except Exception:
-        logger.exception(
-            "safe_reply failed"
+        return None
+
+    except Exception as e:
+        logger.exception("safe_reply error: %s", e)
+        return None
+
+
+# ============================================================
+# WELCOME
+# ============================================================
+
+async def send_welcome(update, context):
+    try:
+        text = (
+            "🎯 <b>Welcome to Aim AI</b>\n\n"
+            "Premium Aim AI services aur Ninja 8BP access "
+            "ke liye neeche menu use karein.\n\n"
+            "👥 Referral se Points earn karein.\n"
+            "🔑 Points se keys redeem karein."
         )
+
+        await safe_reply(
+            update,
+            text,
+            parse_mode="HTML",
+            reply_markup=main_keyboard(),
+        )
+
+    except Exception as e:
+        logger.exception("send_welcome error: %s", e)
 
 
 # ============================================================
 # FREE AIM AI
 # ============================================================
 
-async def free_aim_ai(
-    update,
-    context,
-):
+async def free_aim_ai(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
-        user = get_user(
-            update.effective_user.id
-        ) or {}
-
-        points = int(
-            user.get(
-                "points",
-                0,
-            )
-        )
-
         text = (
-            "🎁 FREE AIM AI\n\n"
-            "1 verified referral = +1 Point\n\n"
-            "AVAILABLE PLANS\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-            "🔑 5 Points  → 1 Day Key\n"
-            "🔑 8 Points  → 7 Days Key\n"
-            "🔑 15 Points → 15 Days Key\n"
-            "♾️ 100 Points → Lifetime + Free Panel\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"💎 Your Points: {points}\n\n"
-            "Neeche plan select karein."
-        )
-
-        await update.message.reply_text(
-            text,
-            reply_markup=plan_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "free_aim_ai failed"
+            "🎁 <b>Free Aim AI</b>\n\n"
+            "Referral system se points collect karein.\n\n"
+            "🎯 5 Points = 1 Day Key\n"
+            "🎯 8 Points = 7 Days Key\n"
+            "🎯 15 Points = 15 Days Key\n"
+            "👑 100 Points = Lifetime + Free Panel\n\n"
+            "👇 Key redeem karne ke liye button use karein."
         )
 
         await safe_reply(
             update,
-            "❌ Free Aim AI open nahi ho saka.",
+            text,
+            parse_mode="HTML",
+            reply_markup=plan_keyboard(),
         )
 
+    except Exception as e:
+        logger.exception("free_aim_ai error: %s", e)
+
 
 # ============================================================
-# GENERATE SELECTED PLAN
+# GENERATE PLAN KEY
 # ============================================================
 
-async def generate_plan(
-    update,
-    context,
-):
+async def generate_plan(update, context, plan_id):
     try:
-        query = update.callback_query
-
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
-        await query.answer()
-
-        plan_id = query.data.replace(
-            "plan_",
-            "",
-            1,
-        )
-
         if plan_id not in PLANS:
-            await query.answer(
-                "Invalid plan.",
-                show_alert=True,
+            await safe_reply(
+                update,
+                "❌ Invalid plan.",
+            )
+            return
+
+        user = update.effective_user
+
+        if not user:
+            return
+
+        user_id = str(user.id)
+
+        db_user = get_user(user_id)
+
+        if not db_user:
+            db_user = create_user(user)
+
+        if not db_user:
+            await safe_reply(
+                update,
+                "❌ Database error. Please try again.",
             )
             return
 
         plan = PLANS[plan_id]
 
-        user_id = update.effective_user.id
+        points = int(db_user.get("points", 0))
 
-        user = get_user(
-            user_id
-        ) or {}
-
-        points = int(
-            user.get(
-                "points",
-                0,
-            )
-        )
-
-        required = int(
+        required_points = int(
             plan["points"]
         )
 
-        if points < required:
+        if points < required_points:
+            remaining = required_points - points
 
-            remaining = (
-                required - points
-            )
-
-            await query.edit_message_text(
-                "❌ NOT ENOUGH POINTS\n\n"
-                f"Your Points: {points}\n"
-                f"Required: {required}\n"
-                f"Remaining: {remaining}\n\n"
-                "👥 Referrals karke points earn karein."
+            await safe_reply(
+                update,
+                (
+                    f"❌ <b>Insufficient Points</b>\n\n"
+                    f"Required: {required_points} Points\n"
+                    f"Your Points: {points}\n"
+                    f"Remaining: {remaining}"
+                ),
+                parse_mode="HTML",
             )
 
             return
@@ -865,401 +730,414 @@ async def generate_plan(
             plan["days"],
         )
 
+        if not record:
+            await safe_reply(
+                update,
+                "❌ Key generation failed.",
+            )
+            return
+
         saved = save_key(
             user_id,
             record,
         )
 
         if not saved:
-            await query.edit_message_text(
-                "❌ Key save nahi ho saki.\n"
-                "Please try again.",
+            await safe_reply(
+                update,
+                "❌ Could not save key. Points were not deducted.",
             )
             return
 
-        update_user(
+        new_points = points - required_points
+
+        updated = update_user(
             user_id,
             {
-                "points": points - required,
+                "points": new_points,
             },
         )
 
-        output = (
-            "Username: {}\n"
-            "Password: {}\n"
-            "Key: {}\n"
-            "Validity: {}\n"
-            "App Download Link: {}"
-        ).format(
-            record["username"],
-            record["password"],
-            record["key"],
-            plan["name"],
-            APP_DOWNLOAD_LINK,
-        )
-
-        await query.edit_message_text(
-            output,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "🏠 Main Menu",
-                            callback_data="home",
-                        )
-                    ]
-                ]
-            ),
-        )
-
-    except Exception:
-        logger.exception(
-            "generate_plan failed"
-        )
-
-        try:
-            await update.callback_query.edit_message_text(
-                "❌ Key generation failed. Please try again."
+        if not updated:
+            logger.warning(
+                "Points update failed for user %s",
+                user_id,
             )
-        except Exception:
-            pass
 
-
-# ============================================================
-# REFERRAL PAGE
-# ============================================================
-
-async def referrals_page(
-    update,
-    context,
-):
-    try:
-        if not await force_join(
-            update,
-            context,
-        ):
-            return
-
-        user_id = update.effective_user.id
-
-        user = get_user(
-            user_id
-        ) or {}
-
-        referrals = int(
-            user.get(
-                "referrals",
-                0,
-            )
-        )
-
-        points = int(
-            user.get(
-                "points",
-                0,
-            )
-        )
-
-        ninja_count = int(
-            user.get(
-                "ninja_ref_count",
-                0,
-            )
-        )
-
-        bot = await context.bot.get_me()
-
-        link = (
-            "https://t.me/"
-            + bot.username
-            + "?start=ref_"
-            + str(user_id)
-        )
-
-        text = (
-            "👥 MY REFERRALS\n\n"
-            f"Verified Referrals: {referrals}\n"
-            f"Points: {points}\n"
-            f"Ninja Progress: {ninja_count}/10\n\n"
-            "🎁 FREE AIM AI\n"
-            "5 Points → 1 Day\n"
-            "8 Points → 7 Days\n"
-            "15 Points → 15 Days\n"
-            "100 Points → Lifetime + Free Panel\n\n"
-            "🔗 YOUR REFERRAL LINK\n"
-            f"{link}"
-        )
-
-        await update.message.reply_text(
-            text,
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "referrals_page failed"
+        message = (
+            f"Username: {record['username']}\n"
+            f"Password: {record['password']}\n"
+            f"Key: {record['key']}\n"
+            f"Validity: {record['plan']}\n"
+            f"App Download Link: {APP_DOWNLOAD_LINK}"
         )
 
         await safe_reply(
             update,
-            "❌ Referral information load nahi hui.",
+            "✅ <b>Key Generated Successfully</b>\n\n"
+            + message,
+            parse_mode="HTML",
         )
+
+    except Exception as e:
+        logger.exception("generate_plan error: %s", e)
+
+        await safe_reply(
+            update,
+            "❌ Something went wrong. Please try again.",
+        )
+
+
+# ============================================================
+# REFERRAL PROCESSING
+# ============================================================
+
+async def process_referral(new_user_id, referral_code):
+    try:
+        if not referral_code:
+            return False
+
+        referral_code = str(referral_code).strip()
+
+        if not referral_code.startswith("ref_"):
+            return False
+
+        referrer_id = referral_code[4:]
+
+        if not referrer_id.isdigit():
+            return False
+
+        if str(referrer_id) == str(new_user_id):
+            return False
+
+        new_user = get_user(new_user_id)
+
+        if not new_user:
+            return False
+
+        if new_user.get("referral_rewarded", False):
+            return False
+
+        referrer = get_user(referrer_id)
+
+        if not referrer:
+            return False
+
+        current_points = int(
+            referrer.get("points", 0)
+        )
+
+        current_referrals = int(
+            referrer.get("referrals", 0)
+        )
+
+        current_ninja = int(
+            referrer.get("ninja_ref_count", 0)
+        )
+
+        update_referrer = update_user(
+            referrer_id,
+            {
+                "points": current_points + 1,
+                "referrals": current_referrals + 1,
+                "ninja_ref_count": current_ninja + 1,
+            },
+        )
+
+        if not update_referrer:
+            return False
+
+        update_user(
+            new_user_id,
+            {
+                "referred_by": str(referrer_id),
+                "referral_rewarded": True,
+            },
+        )
+
+        try:
+            await application_instance.bot.send_message(
+                chat_id=int(referrer_id),
+                text=(
+                    "🎉 <b>New Verified Referral!</b>\n\n"
+                    "+1 Point added.\n"
+                    f"Total Points: {current_points + 1}\n"
+                    f"Total Referrals: {current_referrals + 1}"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+        return True
+
+    except Exception as e:
+        logger.exception("process_referral error: %s", e)
+        return False
+
+
+# ============================================================
+# REFERRAL MENU
+# ============================================================
+
+async def referrals(update, context):
+    try:
+        if not await force_join(update, context):
+            return
+
+        user = update.effective_user
+
+        if not user:
+            return
+
+        db_user = get_user(str(user.id))
+
+        if not db_user:
+            db_user = create_user(user)
+
+        points = int(
+            db_user.get("points", 0)
+        ) if db_user else 0
+
+        referrals_count = int(
+            db_user.get("referrals", 0)
+        ) if db_user else 0
+
+        ninja_count = int(
+            db_user.get("ninja_ref_count", 0)
+        ) if db_user else 0
+
+        bot_info = await context.bot.get_me()
+
+        bot_username = bot_info.username
+
+        referral_link = (
+            f"https://t.me/{bot_username}"
+            f"?start=ref_{user.id}"
+        )
+
+        text = (
+            "👥 <b>Referral System</b>\n\n"
+            f"⭐ Points: {points}\n"
+            f"👥 Verified Referrals: {referrals_count}\n"
+            f"🥷 Ninja Referrals: {ninja_count}\n\n"
+            "🎁 Rewards:\n"
+            "• 5 Points → 1 Day Key\n"
+            "• 8 Points → 7 Days Key\n"
+            "• 15 Points → 15 Days Key\n"
+            "• 100 Points → Lifetime + Free Panel\n\n"
+            "<b>Your Referral Link:</b>\n"
+            f"{referral_link}"
+        )
+
+        await safe_reply(
+            update,
+            text,
+            parse_mode="HTML",
+        )
+
+    except Exception as e:
+        logger.exception("referrals error: %s", e)
 
 
 # ============================================================
 # MY LINK
 # ============================================================
 
-async def my_link(
-    update,
-    context,
-):
+async def my_link(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
-        user_id = update.effective_user.id
+        user = update.effective_user
 
-        bot = await context.bot.get_me()
+        if not user:
+            return
+
+        bot_info = await context.bot.get_me()
 
         link = (
-            "https://t.me/"
-            + bot.username
-            + "?start=ref_"
-            + str(user_id)
-        )
-
-        await update.message.reply_text(
-            "🔗 YOUR REFERRAL LINK\n\n"
-            + link
-            + "\n\n"
-            "Har verified referral = +1 Point.",
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "my_link failed"
+            f"https://t.me/{bot_info.username}"
+            f"?start=ref_{user.id}"
         )
 
         await safe_reply(
             update,
-            "❌ Link generate nahi hua.",
+            (
+                "🔗 <b>Your Referral Link</b>\n\n"
+                f"{link}\n\n"
+                "Is link ko friends ke saath share karein."
+            ),
+            parse_mode="HTML",
         )
+
+    except Exception as e:
+        logger.exception("my_link error: %s", e)
 
 
 # ============================================================
 # MY KEYS
 # ============================================================
 
-async def my_keys(
-    update,
-    context,
-):
+async def my_keys(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
-        user_id = update.effective_user.id
+        user = update.effective_user
 
-        data = firebase_get(
-            "keys/" + str(user_id)
+        if not user:
+            return
+
+        user_id = str(user.id)
+
+        records = firebase_get(
+            f"keys/{user_id}"
         )
 
-        if not data:
-            await update.message.reply_text(
-                "🔑 MY KEYS\n\n"
-                "Aapne abhi koi key generate nahi ki.",
-                reply_markup=main_keyboard(),
+        if not records:
+            await safe_reply(
+                update,
+                "🔑 <b>My Keys</b>\n\nNo keys found.",
+                parse_mode="HTML",
             )
             return
 
-        records = []
+        valid_keys = []
 
-        if isinstance(data, dict):
-            records = list(
-                data.values()
-            )
-
-        active_keys = []
-
-        for record in records:
-
+        for _, record in records.items():
             if key_is_valid(record):
-                active_keys.append(
-                    record
-                )
+                valid_keys.append(record)
 
-        if not active_keys:
-
-            await update.message.reply_text(
-                "🔑 MY KEYS\n\n"
-                "Aapki koi active key nahi hai.",
-                reply_markup=main_keyboard(),
+        if not valid_keys:
+            await safe_reply(
+                update,
+                "🔑 <b>My Keys</b>\n\nNo active keys found.",
+                parse_mode="HTML",
             )
-
             return
 
         lines = [
-            "🔑 MY ACTIVE KEYS",
+            "🔑 <b>Your Active Keys</b>",
             "",
         ]
 
-        for number, record in enumerate(
-            active_keys,
-            1,
+        for index, record in enumerate(
+            valid_keys,
+            start=1,
         ):
-
             lines.append(
-                "Key #{}".format(number)
+                f"<b>Key #{index}</b>"
             )
-
             lines.append(
-                "Username: "
-                + str(
-                    record.get(
-                        "username",
-                        "",
-                    )
-                )
+                f"Username: {record.get('username', '')}"
             )
-
             lines.append(
-                "Password: "
-                + str(
-                    record.get(
-                        "password",
-                        "",
-                    )
-                )
+                f"Password: {record.get('password', '')}"
             )
-
             lines.append(
-                "Key: "
-                + str(
-                    record.get(
-                        "key",
-                        "",
-                    )
-                )
+                f"Key: {record.get('key', '')}"
             )
-
             lines.append(
-                "Validity: "
-                + str(
-                    record.get(
-                        "plan",
-                        "",
-                    )
-                )
+                f"Validity: {record.get('plan', '')}"
             )
-
             lines.append("")
-
-        await update.message.reply_text(
-            "\n".join(lines),
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "my_keys failed"
-        )
 
         await safe_reply(
             update,
-            "❌ Keys load nahi ho sakin.",
+            "\n".join(lines),
+            parse_mode="HTML",
         )
+
+    except Exception as e:
+        logger.exception("my_keys error: %s", e)
 
 
 # ============================================================
 # NINJA 8BP
 # ============================================================
 
-async def ninja_8bp(
-    update,
-    context,
-):
+async def ninja_8bp(update, context):
     try:
-        if not await force_join(
+        if not await force_join(update, context):
+            return
+
+        user = update.effective_user
+
+        if not user:
+            return
+
+        db_user = get_user(str(user.id))
+
+        if not db_user:
+            db_user = create_user(user)
+
+        ninja_count = int(
+            db_user.get("ninja_ref_count", 0)
+        ) if db_user else 0
+
+        required = 10
+
+        if ninja_count < required:
+            remaining = required - ninja_count
+
+            await safe_reply(
+                update,
+                (
+                    "🥷 <b>Ninja 8BP</b>\n\n"
+                    f"Your verified referrals: {ninja_count}/{required}\n\n"
+                    f"❗ {remaining} more referral(s) required.\n\n"
+                    "Referral complete hone ke baad Ninja APK "
+                    "yahan se milega."
+                ),
+                parse_mode="HTML",
+            )
+
+            return
+
+        if not os.path.isfile(NINJA_APK_PATH):
+            await safe_reply(
+                update,
+                (
+                    "❌ Ninja APK server par nahi mili.\n\n"
+                    f"Required filename:\n"
+                    f"<code>{NINJA_APK_PATH}</code>"
+                ),
+                parse_mode="HTML",
+            )
+            return
+
+        await safe_reply(
             update,
-            context,
-        ):
-            return
-
-        user_id = update.effective_user.id
-
-        user = get_user(
-            user_id
-        ) or {}
-
-        count = int(
-            user.get(
-                "ninja_ref_count",
-                0,
-            )
-        )
-
-        if count < 10:
-
-            remaining = 10 - count
-
-            await update.message.reply_text(
-                "🥷 NINJA 8BP\n\n"
-                "APK unlock ke liye "
-                "10 verified referrals required hain.\n\n"
-                f"Progress: {count}/10\n"
-                f"Remaining: {remaining}",
-                reply_markup=main_keyboard(),
-            )
-
-            return
-
-        if not os.path.isfile(
-            NINJA_APK_PATH
-        ):
-
-            await update.message.reply_text(
-                "❌ Ninja 8BP APK server par nahi mili.\n\n"
-                f"Owner: {OWNER_TELEGRAM}",
-                reply_markup=main_keyboard(),
-            )
-
-            return
-
-        await update.message.reply_text(
-            "⏳ 10 referrals verified.\n"
-            "Ninja 8BP APK upload ho rahi hai..."
+            "🥷 <b>Ninja 8BP</b>\n\n"
+            "✅ Requirement completed.\n"
+            "📦 APK sending..."
+            ,
+            parse_mode="HTML",
         )
 
         with open(
             NINJA_APK_PATH,
             "rb",
-        ) as apk:
+        ) as apk_file:
 
             await context.bot.send_document(
-                chat_id=user_id,
-                document=apk,
+                chat_id=user.id,
+                document=apk_file,
+                filename=NINJA_APK_PATH,
                 caption=(
-                    "🥷 Ninja 8BP\n\n"
-                    "✅ 10 verified referrals completed."
+                    "🥷 <b>Ninja 8BP APK</b>\n\n"
+                    "✅ Referral requirement completed."
                 ),
+                parse_mode="HTML",
             )
 
-    except Exception:
-        logger.exception(
-            "ninja_8bp failed"
-        )
+    except Exception as e:
+        logger.exception("ninja_8bp error: %s", e)
 
         await safe_reply(
             update,
-            "❌ Ninja 8BP APK send nahi ho saki.",
+            "❌ APK send karte waqt error aaya.",
         )
 
 
@@ -1267,110 +1145,72 @@ async def ninja_8bp(
 # PURCHASE AIM AI
 # ============================================================
 
-async def purchase_aim(
-    update,
-    context,
-):
+async def purchase_aim_ai(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
         text = (
-            "💳 PURCHASE AIM AI\n\n"
-            "Aim AI purchase aur activation ke liye "
-            "owner se direct contact karein.\n\n"
-            "👤 Telegram:\n"
+            "💳 <b>Purchase Aim AI</b>\n\n"
+            "📲 Telegram:\n"
             f"{OWNER_TELEGRAM}\n\n"
             "📱 WhatsApp:\n"
             f"{OWNER_WHATSAPP}\n\n"
-            "📥 App:\n"
+            "📦 App Download:\n"
             f"{APP_DOWNLOAD_LINK}"
         )
 
-        await update.message.reply_text(
-            text,
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "purchase_aim failed"
-        )
-
         await safe_reply(
             update,
-            "❌ Purchase page open nahi hui.",
+            text,
+            parse_mode="HTML",
         )
 
+    except Exception as e:
+        logger.exception("purchase_aim_ai error: %s", e)
+
 
 # ============================================================
-# PURCHASE AIM AI PANEL
+# PURCHASE PANEL
 # ============================================================
 
-async def purchase_panel(
-    update,
-    context,
-):
+async def purchase_panel(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
         text = (
-            "💎 AIM AI PANEL\n\n"
-            "🔥 ONE-TIME INVESTMENT: ₹400\n\n"
-            "Apna khud ka Aim AI key distribution "
-            "aur resale business start karein.\n\n"
-            "✨ PANEL BENEFITS\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-            "♾️ Unlimited Key Generation\n"
-            "🔑 Key Distribution System\n"
-            "💰 Resale Business Opportunity\n"
-            "🎨 Custom Branding\n"
-            "⚡ Fast Key Management\n"
-            "📦 Multiple Key Generation\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "₹400 fixed one-time investment.\n"
-            "Monthly subscription nahi.\n\n"
-            "📩 Purchase ke liye contact:\n"
-            f"Telegram: {OWNER_TELEGRAM}\n"
-            f"WhatsApp: {OWNER_WHATSAPP}"
-        )
-
-        await update.message.reply_text(
-            text,
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "purchase_panel failed"
+            "💎 <b>Aim AI Panel</b>\n\n"
+            "💰 Price: <b>₹400 Lifetime</b>\n\n"
+            "🔥 Panel Features:\n"
+            "• Unlimited key generation\n"
+            "• Keys resale business\n"
+            "• Custom branding\n"
+            "• One-time investment\n"
+            "• No monthly subscription\n\n"
+            "📲 Telegram:\n"
+            f"{OWNER_TELEGRAM}\n\n"
+            "📱 WhatsApp:\n"
+            f"{OWNER_WHATSAPP}"
         )
 
         await safe_reply(
             update,
-            "❌ Panel page open nahi hui.",
+            text,
+            parse_mode="HTML",
         )
+
+    except Exception as e:
+        logger.exception("purchase_panel error: %s", e)
 
 
 # ============================================================
 # TRUST PROOF
 # ============================================================
 
-async def trust_proof(
-    update,
-    context,
-):
+async def trust_proof(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
         keyboard = InlineKeyboardMarkup(
@@ -1384,187 +1224,123 @@ async def trust_proof(
             ]
         )
 
-        await update.message.reply_text(
-            "🛡️ TRUST PROOF\n\n"
-            "Customer proofs aur feedback "
-            "official proof channel par available hain.",
+        await safe_reply(
+            update,
+            (
+                "🛡️ <b>Trust Proof</b>\n\n"
+                "Previous proofs aur customer-related proof "
+                "dekhne ke liye channel open karein."
+            ),
+            parse_mode="HTML",
             reply_markup=keyboard,
         )
 
-    except Exception:
-        logger.exception(
-            "trust_proof failed"
-        )
-
-        await safe_reply(
-            update,
-            "❌ Trust Proof open nahi hua.",
-        )
+    except Exception as e:
+        logger.exception("trust_proof error: %s", e)
 
 
 # ============================================================
 # HOW IT WORKS
 # ============================================================
 
-async def how_it_works(
-    update,
-    context,
-):
+async def how_it_works(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
 
         text = (
-            "ℹ️ HOW IT WORKS\n\n"
-            "1️⃣ Official channel join karein.\n\n"
-            "2️⃣ Apna referral link share karein.\n\n"
-            "3️⃣ Har verified referral = +1 Point.\n\n"
-            "4️⃣ Points se free Aim AI key generate karein.\n\n"
-            "5️⃣ 10 verified referrals par Ninja 8BP APK unlock hota hai.\n\n"
-            "🎁 PLANS\n"
-            "5 → 1 Day\n"
-            "8 → 7 Days\n"
-            "15 → 15 Days\n"
-            "100 → Lifetime + Free Panel"
-        )
-
-        await update.message.reply_text(
-            text,
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "how_it_works failed"
+            "ℹ️ <b>How It Works</b>\n\n"
+            "1️⃣ Official channel join karein.\n"
+            "2️⃣ Verify Joining dabayein.\n"
+            "3️⃣ Referral link share karein.\n"
+            "4️⃣ Har verified referral = +1 Point.\n"
+            "5️⃣ Points se key redeem karein.\n\n"
+            "🎯 5 → 1 Day\n"
+            "🎯 8 → 7 Days\n"
+            "🎯 15 → 15 Days\n"
+            "👑 100 → Lifetime + Free Panel\n\n"
+            "🥷 Ninja 8BP ke liye 10 verified Ninja referrals "
+            "required hain."
         )
 
         await safe_reply(
             update,
-            "❌ Information load nahi hui.",
+            text,
+            parse_mode="HTML",
         )
+
+    except Exception as e:
+        logger.exception("how_it_works error: %s", e)
 
 
 # ============================================================
 # REFRESH
 # ============================================================
 
-async def refresh(
-    update,
-    context,
-):
+async def refresh(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
+        if not await force_join(update, context):
             return
-
-        user = get_user(
-            update.effective_user.id
-        ) or {}
-
-        points = int(
-            user.get(
-                "points",
-                0,
-            )
-        )
-
-        referrals = int(
-            user.get(
-                "referrals",
-                0,
-            )
-        )
-
-        ninja = int(
-            user.get(
-                "ninja_ref_count",
-                0,
-            )
-        )
-
-        await update.message.reply_text(
-            "🔄 REFRESHED\n\n"
-            f"💎 Points: {points}\n"
-            f"👥 Referrals: {referrals}\n"
-            f"🥷 Ninja Progress: {ninja}/10",
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception:
-        logger.exception(
-            "refresh failed"
-        )
 
         await safe_reply(
             update,
-            "❌ Refresh failed.",
+            "🔄 Menu refreshed.",
+            reply_markup=main_keyboard(),
         )
 
+    except Exception as e:
+        logger.exception("refresh error: %s", e)
+
 
 # ============================================================
-# VERIFY JOINING
+# VERIFY JOIN CALLBACK
 # ============================================================
 
-async def verify_joining(
-    update,
-    context,
-):
+async def verify_join_callback(update, context):
     try:
         query = update.callback_query
+
+        if not query:
+            return
+
+        await query.answer()
 
         joined = await check_membership(
             update,
             context,
         )
 
-        if joined:
-
-            await query.answer(
-                "✅ Joining verified!",
-                show_alert=True,
-            )
-
+        if not joined:
             await query.message.reply_text(
-                "✅ CHANNEL VERIFIED\n\n"
-                "Ab bot ke features available hain.",
-                reply_markup=main_keyboard(),
+                "❌ Abhi channel membership verify nahi hui.\n\n"
+                "Pehle channel join karein aur phir Verify Joining dabayein.",
+                reply_markup=join_keyboard(),
             )
+            return
 
-        else:
+        await query.message.reply_text(
+            "✅ <b>Membership Verified!</b>\n\n"
+            "Ab bot ke saare features available hain.",
+            parse_mode="HTML",
+            reply_markup=main_keyboard(),
+        )
 
-            await query.answer(
-                "❌ Pehle official channel join karein.",
-                show_alert=True,
-            )
-
-    except Exception:
+    except Exception as e:
         logger.exception(
-            "verify_joining failed"
+            "verify_join_callback error: %s",
+            e,
         )
 
 
 # ============================================================
-# HOME CALLBACK
+# CALLBACK ROUTER
 # ============================================================
 
-async def home_callback(
-    update,
-    context,
-):
+async def callback_router(update, context):
     try:
-        if not await force_join(
-            update,
-            context,
-        ):
-            return
-
         query = update.callback_query
 
-        await query.answer()
+        if not query:
+            return
 
-        await
+        dat
