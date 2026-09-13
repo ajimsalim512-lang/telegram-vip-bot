@@ -323,12 +323,15 @@ def handle_text_buttons(message):
     elif "Purchase Aim AI Panel" in text:
         bot.send_message(
             user_id,
-            "💎 <b>Purchase Aim AI Panel</b>\n\n"
-            "✅ Generate unlimited keys directly\n"
-            "✅ Sell unlimited keys & panels\n"
-            "✅ Panel with your name\n"
-            "✅ One time investment\n\n"
-            "💬 <b>Purchase ke liye contact karein:</b>\n"
+            "💎 <b>AIM AI PANEL - KING OF ALL EDITORS</b> 👑\n\n"
+            "🔥 <b>Limited Time Special Offer: Only at ₹400!</b> 🔥\n\n"
+            "Kyun khareedein yeh panel? Fayde hi fayde:\n"
+            "✅ <b>Unlimited Key Generation:</b> Bina kisi limit ke jitni marzi utni keys khud generate karein!\n"
+            "✅ <b>Start Your Own Business:</b> Khud ka panel bech kar mota munafa kamayein!\n"
+            "✅ <b>100% Branded Panel:</b> Panel par naam aapka hoga!\n"
+            "✅ <b>One time investment:</b> Bar-bar paise dene ki jhanjhat khatam!\n\n"
+            "❌ <i>Free version available nahi hai, isliye time waste mat karein!</i> ❌\n\n"
+            "💬 <b>Purchase karne ke liye contact karein:</b>\n"
             f"• Telegram: <b>{OWNER_CONTACT}</b>\n"
             f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
             parse_mode="HTML",
@@ -395,7 +398,7 @@ def handle_text_buttons(message):
             "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
             "1️⃣ Bot start karne ke liye official Telegram channel join karna compulsory hai.\n"
             "2️⃣ Apni **Referral Link** doston ke sath share karke points earn karein (1 Refer = 1 Point).\n"
-            "3️⃣ Free Aim AI ke liye points use karein, ya phir direct paid purchase ke liye **{OWNER_CONTACT}** par contact karein!",
+            f"3️⃣ Free Aim AI ke liye points use karein, ya phir direct paid purchase ke liye <b>{OWNER_CONTACT}</b> par contact karein!",
             parse_mode="HTML",
             reply_markup=main_keyboard()
         )
@@ -447,7 +450,8 @@ def callback_handler(call):
 
         new_points = points - plan["points"]
         
-        # UTC timezone sync to fix expiration issues
+        # UTC timezone sync with buffer delay sign to ensure valid unexpired keys
+        time.sleep(0.5)
         now_utc = datetime.now(timezone.utc)
         created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -467,7 +471,7 @@ def callback_handler(call):
 
         firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
 
-        # Exact requested format
+        # Exact requested clean format
         success_msg = (
             f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n"
             f"Username: <code>{key}</code>\n"
