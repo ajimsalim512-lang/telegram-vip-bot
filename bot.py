@@ -198,11 +198,7 @@ def handle_media_upload(message):
             bot.reply_to(message, f"📁 Document/APK File ID:\n<code>{file_id}</code>", parse_mode="HTML")
     except Exception as e:
         logger.error("Media upload error: %s", e)
-
-# =========================================================
-# KEYBOARDS
-# =========================================================
-def main_keyboard():
+            def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🎁 Free Aim AI"), types.KeyboardButton("💳 Purchase Aim AI"))
     markup.row(types.KeyboardButton("💎 Purchase Aim AI Panel"), types.KeyboardButton("🥷 Ninja 8BP"))
@@ -224,9 +220,6 @@ def free_plans_keyboard():
     markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="refresh"))
     return markup
 
-# =========================================================
-# HANDLERS & WELCOME MESSAGE
-# =========================================================
 def send_welcome_intro(user_id, extra_msg=""):
     try:
         user = get_user(user_id)
@@ -484,4 +477,53 @@ def freegen_callback(call):
             "username": key,
             "password": key,
             "user_id": str(user_id),
-  
+            "days": plan["days"],
+            "status": "active",
+            "created_at": created_at_str
+        }
+
+        if not firebase_put(f"keys/{key}", key_data):
+            bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyboard())
+            return
+
+        firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
+
+        success_msg = (
+            f"🎉 KEY GENERATED SUCCESSFULLY!\n\n"
+            f"Username: <code>{key}</code>\n"
+            f"Password: <code>{key}</code>\n"
+            f"Key: <code>{key}</code>\n\n"
+            f"⏳ Validity: {plan['name']}\n"
+            f"📱 App Download Link:\n{APP_DOWNLOAD_LINK}"
+        )
+        bot.send_message(user_id, success_msg, parse_mode="HTML", reply_markup=main_keyboard())
+    except Exception as e:
+        logger.error("freegen_callback error: %s", e)
+
+def load_bot_username():
+    try:
+        global BOT_USERNAME
+        me = bot.get_me()
+        if me and me.username:
+            BOT_USERNAME = me.username
+    except Exception as e:
+        logger.error("Could not load bot username: %s", e)
+
+def start_bot():
+    while True:
+        try:
+            bot.remove_webhook()
+            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
+        except Exception as e:
+            logger.error("Polling crashed: %s", e)
+            time.sleep(5)
+
+if __name__ == "__main__":
+    try:
+        threading.Thread(target=run_web_server, daemon=True).start()
+        time.sleep(2)
+        load_bot_username()
+        start_bot()
+    except Exception as e:
+        logger.error("Main execution error: %s", e)
+                                 
