@@ -198,8 +198,7 @@ def handle_media_upload(message):
             bot.reply_to(message, f"📁 Document/APK File ID:\n<code>{file_id}</code>", parse_mode="HTML")
     except Exception as e:
         logger.error("Media upload error: %s", e)
-
-def main_keyboard():
+        def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🎁 Free Aim AI"), types.KeyboardButton("💳 Purchase Aim AI"))
     markup.row(types.KeyboardButton("💎 Purchase Aim AI Panel"), types.KeyboardButton("🥷 Ninja 8BP"))
@@ -220,7 +219,8 @@ def free_plans_keyboard():
         markup.add(types.InlineKeyboardButton(f"{plan['name']} - ⭐ {plan['points']}", callback_data=f"freegen:{pid}"))
     markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="refresh"))
     return markup
-    def send_welcome_intro(user_id, extra_msg=""):
+
+def send_welcome_intro(user_id, extra_msg=""):
     try:
         user = get_user(user_id)
         if not user:
@@ -526,4 +526,4 @@ if __name__ == "__main__":
         start_bot()
     except Exception as e:
         logger.error("Main execution error: %s", e)
-        
+            
