@@ -17,14 +17,13 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
+NINJA_APK_LINK = "https://t.me/memonxgaming/1060"
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
 
-# Yahan apni Ninja APK file ka real file_id dalein (Bot ko document bhej kar file_id mil jayegi)
-NINJA_APK_FILE_ID = os.getenv("NINJA_APK_FILE_ID", "BQACAgUAAxkBAAIB...")
-
 INTRO_VIDEO_FILE_ID = os.getenv("INTRO_VIDEO_FILE_ID", "")
+NINJA_APK_FILE_ID = os.getenv("NINJA_APK_FILE_ID", "")
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
 
 FREE_PLANS = {
@@ -180,7 +179,6 @@ def generate_unique_key():
             return key
     return None
 
-# Capture file_id or video_id if sent directly to bot chat for configuration
 @bot.message_handler(content_types=['video', 'document'])
 def handle_media_upload(message):
     if message.video:
@@ -225,11 +223,20 @@ def send_welcome_intro(user_id, extra_msg=""):
     if not user:
         return
 
-    caption = (f"{extra_msg}\n\n" if extra_msg else "") + (
-        f"🔥 <b>AIM AI PANEL & FREE AIM AI BOT!</b> 🔥\n"
-        f"Free me Aim AI keys lene ke liye friends ko refer karein, ya direct purchase karein.\n\n"
-        f"👇 Niche diye gaye options me se apna manpasand feature select karein:"
+    features_text = (
+        f"🤖 <b>BOT FEATURES & OPTIONS MENU</b> 🚀\n\n"
+        f"🎁 <b>Free Aim AI:</b> Points earn karke free keys generate karein (1 Refer = 1 Point).\n"
+        f"💳 <b>Purchase Aim AI:</b> Direct paid key ke liye owner se contact karein.\n"
+        f"💎 <b>Purchase Aim AI Panel:</b> Unlimited keys aur panel selling business ke liye (Only ₹400).\n"
+        f"🥷 <b>Ninja 8BP:</b> 10 refers complete karke free APK file unlock karein.\n"
+        f"🔗 <b>My Link:</b> Apni personal referral link copy karein.\n"
+        f"👥 <b>Referrals:</b> Apne total referrals aur points check karein.\n"
+        f"🔑 <b>My Keys:</b> Aapki saari generated keys yahan dikhengi.\n"
+        f"🛡️ <b>Trust Proof:</b> Customer proofs aur successful deals channel.\n\n"
+        f"👇 Apna option select karne ke liye niche buttons ka use karein:"
     )
+
+    caption = (f"{extra_msg}\n\n" if extra_msg else "") + features_text
 
     if not user.get("intro_sent", False):
         try:
@@ -295,7 +302,6 @@ def handle_text_buttons(message):
         bot.send_message(user_id, "👑 <b>Secret Admin Access Activated!</b>", parse_mode="HTML", reply_markup=main_keyboard())
         return
 
-    # Force Channel Join Check for ALL Actions
     if not check_joined(user_id):
         bot.send_message(
             user_id,
@@ -348,21 +354,24 @@ def handle_text_buttons(message):
         user = get_user(user_id)
         ninja_count = user.get("ninja_ref_count", 0) if user else 0
         if ninja_count >= 10:
-            try:
-                bot.send_document(
-                    user_id,
-                    NINJA_APK_FILE_ID,
-                    caption="🥷 <b>Ninja 8BP - Free APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                bot.send_message(
-                    user_id,
-                    f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\n"
-                    f"Aapne 10 refers complete kar liye hain! Download Link:\n{NINJA_APK_LINK}",
-                    parse_mode="HTML",
-                    reply_markup=main_keyboard()
-                )
+            if NINJA_APK_FILE_ID:
+                try:
+                    bot.send_document(
+                        user_id,
+                        NINJA_APK_FILE_ID,
+                        caption="🥷 <b>Ninja 8BP - Free APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇",
+                        parse_mode="HTML"
+                    )
+                    return
+                except Exception:
+                    pass
+            bot.send_message(
+                user_id,
+                f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\n"
+                f"Aapne 10 refers complete kar liye hain! Download Link:\n{NINJA_APK_LINK}",
+                parse_mode="HTML",
+                reply_markup=main_keyboard()
+            )
         else:
             bot.send_message(
                 user_id,
@@ -428,86 +437,76 @@ def handle_text_buttons(message):
             reply_markup=main_keyboard()
         )
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("freegen:"))
+def freegen_callback(call):
     user_id = call.from_user.id
     data = call.data
     bot.answer_callback_query(call.id)
 
-    if data == "refresh":
-        send_welcome_intro(user_id)
-
-    elif data.startswith("freegen:"):
-        plan_id = data.split(":", 1)[1]
-        if not check_joined(user_id):
-            bot.send_message(
-                user_id,
-                "❌ <b>Access Denied</b>\n\nPehle official channel join karein warna key generate nahi hogi!",
-                parse_mode="HTML",
-                reply_markup=join_keyboard()
-            )
-            return
-        
-        user = get_user(user_id)
-        if not user:
-            bot.send_message(user_id, "❌ User data nahi mila.", reply_markup=main_keyboard())
-            return
-
-        plan = FREE_PLANS[plan_id]
-        points = int(user.get("points", 0))
-
-        if points < plan["points"]:
-            bot.send_message(
-                user_id,
-                f"❌ <b>Insufficient Points</b>\n\n"
-                f"⭐ Your Points: <b>{points}</b>\n"
-                f"Required: <b>{plan['points']}</b>\n\n"
-                f"💡 Aur points ke liye apni referral link share karein!",
-                parse_mode="HTML",
-                reply_markup=main_keyboard()
-            )
-            return
-
-        key = generate_unique_key()
-        if not key:
-            bot.send_message(user_id, "❌ Key generation failed. Dobara koshish karein.", reply_markup=main_keyboard())
-            return
-
-        new_points = points - plan["points"]
-        
-        # UTC timezone sync with buffer delay to ensure valid unexpired keys
-        time.sleep(0.5)
-        now_utc = datetime.now(timezone.utc)
-        created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-        key_data = {
-            "key": key,
-            "username": key,
-            "password": key,
-            "user_id": str(user_id),
-            "days": plan["days"],
-            "status": "active",
-            "created_at": created_at_str
-        }
-
-        if not firebase_put(f"keys/{key}", key_data):
-            bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyword())
-            return
-
-        firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
-
-        # Exact requested clean format
-        success_msg = (
-            f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n"
-            f"Username: <code>{key}</code>\n"
-            f"Password: <code>{key}</code>\n"
-            f"Key: <code>{key}</code>\n\n"
-            f"⏳ Validity: <b>{plan['name']}</b>\n"
-            f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}"
+    plan_id = data.split(":", 1)[1]
+    if not check_joined(user_id):
+        bot.send_message(
+            user_id,
+            "❌ <b>Access Denied</b>\n\nPehle official channel join karein warna key generate nahi hogi!",
+            parse_mode="HTML",
+            reply_markup=join_keyboard()
         )
-        bot.send_message(user_id, success_msg, parse_mode="HTML", reply_markup=main_keyboard())
+        return
+    
+    user = get_user(user_id)
+    if not user:
+        bot.send_message(user_id, "❌ User data nahi mila.", reply_markup=main_keyboard())
+        return
 
-def load_bot_username():
-    global BOT_USERNAME
-    try:
-        BOT_USERNAME = bot.get_me().username or 
+    plan = FREE_PLANS[plan_id]
+    points = int(user.get("points", 0))
+
+    if points < plan["points"]:
+        bot.send_message(
+            user_id,
+            f"❌ <b>Insufficient Points</b>\n\n"
+            f"⭐ Your Points: <b>{points}</b>\n"
+            f"Required: <b>{plan['points']}</b>\n\n"
+            f"💡 Aur points ke liye apni referral link share karein!",
+            parse_mode="HTML",
+            reply_markup=main_keyboard()
+        )
+        return
+
+    key = generate_unique_key()
+    if not key:
+        bot.send_message(user_id, "❌ Key generation failed. Dobara koshish karein.", reply_markup=main_keyboard())
+        return
+
+    new_points = points - plan["points"]
+    
+    time.sleep(0.5)
+    now_utc = datetime.now(timezone.utc)
+    created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    key_data = {
+        "key": key,
+        "username": key,
+        "password": key,
+        "user_id": str(user_id),
+        "days": plan["days"],
+        "status": "active",
+        "created_at": created_at_str
+    }
+
+    if not firebase_put(f"keys/{key}", key_data):
+        bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyboard())
+        return
+
+    firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
+
+    success_msg = (
+        f"🎉 <b>KEY GENERATED SUCCESSFULLY!</b>\n\n"
+        f"Username: <code>{key}</code>\n"
+        f"Password: <code>{key}</code>\n"
+        f"Key: <code>{key}</code>\n\n"
+        f"⏳ Validity: <b>{plan['name']}</b>\n"
+        f"📱 <b>App Download Link:</b>\n{APP_DOWNLOAD_LINK}"
+    )
+    bot.send_message(user_id, success_msg, parse_mode="HTML", reply_markup=main_keyboard())
+
