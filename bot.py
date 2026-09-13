@@ -17,10 +17,12 @@ FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/novaengine01")
 APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
-NINJA_APK_LINK = "https://t.me/memonxgaming/1060"
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 PROOF_CHANNEL_LINK = "https://t.me/proofnovaengine"
+
+# Yahan apni Ninja APK file ka real file_id dalein (Bot ko document bhej kar file_id mil jayegi)
+NINJA_APK_FILE_ID = os.getenv("NINJA_APK_FILE_ID", "BQACAgUAAxkBAAIB...")
 
 INTRO_VIDEO_FILE_ID = os.getenv("INTRO_VIDEO_FILE_ID", "")
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
@@ -178,10 +180,15 @@ def generate_unique_key():
             return key
     return None
 
-@bot.message_handler(content_types=['video'])
-def handle_video_upload(message):
-    file_id = message.video.file_id
-    bot.reply_to(message, f"🎥 <b>Video File ID Received!</b>\n\nCopy this ID into code:\n<code>{file_id}</code>", parse_mode="HTML")
+# Capture file_id or video_id if sent directly to bot chat for configuration
+@bot.message_handler(content_types=['video', 'document'])
+def handle_media_upload(message):
+    if message.video:
+        file_id = message.video.file_id
+        bot.reply_to(message, f"🎥 <b>Video File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
+    elif message.document:
+        file_id = message.document.file_id
+        bot.reply_to(message, f"📁 <b>Document/APK File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
 
 # =========================================================
 # KEYBOARDS
@@ -340,14 +347,32 @@ def handle_text_buttons(message):
     elif "Ninja 8BP" in text:
         user = get_user(user_id)
         ninja_count = user.get("ninja_ref_count", 0) if user else 0
-        markup = types.InlineKeyboardMarkup()
         if ninja_count >= 10:
-            markup.add(types.InlineKeyboardButton("📥 Download APK File Only", url=NINJA_APK_LINK))
-            msg = f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\nAapne 10 refers successfully complete kar liye hain ({ninja_count}/10). Niche button se sirf APK file download karein 👇"
+            try:
+                bot.send_document(
+                    user_id,
+                    NINJA_APK_FILE_ID,
+                    caption="🥷 <b>Ninja 8BP - Free APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                bot.send_message(
+                    user_id,
+                    f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\n"
+                    f"Aapne 10 refers complete kar liye hain! Download Link:\n{NINJA_APK_LINK}",
+                    parse_mode="HTML",
+                    reply_markup=main_keyboard()
+                )
         else:
-            msg = f"🥷 <b>Ninja 8BP - Free APK Offer</b>\n\nTotal 10 refers complete karne par aapko sirf APK file free me milegi (Channel join compulsory hai)!\n\n👥 Aapke current refers: <b>{ninja_count}/10</b>\n\n💡 Apni referral link se doston ko invite karein!"
-        
-        bot.send_message(user_id, msg, parse_mode="HTML", reply_markup=markup)
+            bot.send_message(
+                user_id,
+                f"🥷 <b>Ninja 8BP - Free APK Offer</b>\n\n"
+                f"Total 10 refers complete karne par aapko sirf APK file free me milegi (Channel join compulsory hai)!\n\n"
+                f"👥 Aapke current refers: <b>{ninja_count}/10</b>\n\n"
+                f"💡 Apni referral link se doston ko invite karein!",
+                parse_mode="HTML",
+                reply_markup=main_keyboard()
+            )
     elif "My Link" in text:
         link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
         bot.send_message(
@@ -450,7 +475,7 @@ def callback_handler(call):
 
         new_points = points - plan["points"]
         
-        # UTC timezone sync with buffer delay sign to ensure valid unexpired keys
+        # UTC timezone sync with buffer delay to ensure valid unexpired keys
         time.sleep(0.5)
         now_utc = datetime.now(timezone.utc)
         created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -466,7 +491,7 @@ def callback_handler(call):
         }
 
         if not firebase_put(f"keys/{key}", key_data):
-            bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyboard())
+            bot.send_message(user_id, "❌ Database error.", reply_markup=main_keyword())
             return
 
         firebase_patch(f"users/{user_id}", {"points": new_points, f"keys/{key}": key_data})
@@ -485,21 +510,4 @@ def callback_handler(call):
 def load_bot_username():
     global BOT_USERNAME
     try:
-        BOT_USERNAME = bot.get_me().username or ""
-    except Exception:
-        pass
-
-def start_bot():
-    while True:
-        try:
-            bot.remove_webhook()
-            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
-        except Exception as e:
-            time.sleep(5)
-
-if __name__ == "__main__":
-    threading.Thread(target=run_web_server, daemon=True).start()
-    time.sleep(2)
-    load_bot_username()
-    start_bot()
-        
+        BOT_USERNAME = bot.get_me().username or 
