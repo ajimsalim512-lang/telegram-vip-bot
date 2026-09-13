@@ -171,10 +171,7 @@ def reward_referrer_once(referred_id):
         try:
             bot.send_message(
                 int(referrer_id),
-                "🎉 <b>New Referral Joined!</b>\n\n"
-                "Aapki link se ek naye user ne channel join kar liya hai!\n"
-                "⭐ Aapko <b>+1 Point</b> mil gaya hai! 🚀",
-                parse_mode="HTML"
+                "🎉 New Referral Joined!\n\nAapki link se ek naye user ne channel join kar liya hai!\n⭐ Aapko +1 Point mil gaya hai! 🚀"
             )
         except Exception:
             pass
@@ -195,10 +192,10 @@ def handle_media_upload(message):
     try:
         if message.video:
             file_id = message.video.file_id
-            bot.reply_to(message, f"🎥 <b>Video File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
+            bot.reply_to(message, f"🎥 Video File ID:\n<code>{file_id}</code>", parse_mode="HTML")
         elif message.document:
             file_id = message.document.file_id
-            bot.reply_to(message, f"📁 <b>Document/APK File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
+            bot.reply_to(message, f"📁 Document/APK File ID:\n<code>{file_id}</code>", parse_mode="HTML")
     except Exception as e:
         logger.error("Media upload error: %s", e)
 
@@ -237,16 +234,16 @@ def send_welcome_intro(user_id, extra_msg=""):
             return
 
         features_text = (
-            f"🤖 <b>BOT FEATURES & OPTIONS MENU</b> 🚀\n\n"
-            f"🎁 <b>Free Aim AI:</b> Points earn karke free keys generate karein (1 Refer = 1 Point).\n"
-            f"💳 <b>Purchase Aim AI:</b> Direct paid key ke liye owner se contact karein.\n"
-            f"💎 <b>Purchase Aim AI Panel:</b> Unlimited keys aur panel selling business ke liye (Only ₹400).\n"
-            f"🥷 <b>Ninja 8BP:</b> 10 refers complete karke free APK file unlock karein.\n"
-            f"🔗 <b>My Link:</b> Apni personal referral link copy karein.\n"
-            f"👥 <b>Referrals:</b> Apne total referrals aur points check karein.\n"
-            f"🔑 <b>My Keys:</b> Aapki saari generated keys yahan dikhengi.\n"
-            f"🛡️ <b>Trust Proof:</b> Customer proofs aur successful deals channel.\n\n"
-            f"👇 Apna option select karne ke liye niche buttons ka use karein:"
+            "🤖 BOT FEATURES & OPTIONS MENU 🚀\n\n"
+            "🎁 Free Aim AI: Points earn karke free keys generate karein (1 Refer = 1 Point).\n"
+            "💳 Purchase Aim AI: Direct paid key ke liye owner se contact karein.\n"
+            "💎 Purchase Aim AI Panel: Unlimited keys aur panel selling business ke liye (Only ₹400).\n"
+            "🥷 Ninja 8BP: 10 refers complete karke free APK file unlock karein.\n"
+            "🔗 My Link: Apni personal referral link copy karein.\n"
+            "👥 Referrals: Apne total referrals aur points check karein.\n"
+            "🔑 My Keys: Aapki saari generated keys yahan dikhengi.\n"
+            "🛡️ Trust Proof: Customer proofs aur successful deals channel.\n\n"
+            "👇 Apna option select karne ke liye niche buttons ka use karein:"
         )
 
         caption = (f"{extra_msg}\n\n" if extra_msg else "") + features_text
@@ -278,16 +275,15 @@ def start_command(message):
         if not check_joined(user_id):
             bot.send_message(
                 user_id,
-                f"👋 <b>Welcome {message.from_user.first_name}!</b>\n\n"
-                f"⚠️ Bot aur refer system use karne ke liye pehle hamara <b>Telegram Channel join karna compulsory hai</b>, warna yeh work nahi karega!\n\n"
-                f"👇 Channel join karne ke baad <b>Verify Joining</b> dabao.",
-                parse_mode="HTML",
+                f"👋 Welcome {message.from_user.first_name}!\n\n"
+                "⚠️ Bot aur refer system use karne ke liye pehle hamara Telegram Channel join karna compulsory hai, warna yeh work nahi karega!\n\n"
+                "👇 Channel join karne ke baad Verify Joining dabao.",
                 reply_markup=join_keyboard()
             )
             return
 
         reward_referrer_once(user_id)
-        send_welcome_intro(user_id, "🎉 <b>Verification Successful!</b>")
+        send_welcome_intro(user_id, "🎉 Verification Successful!")
     except Exception as e:
         logger.error("start_command error: %s", e)
 
@@ -300,15 +296,14 @@ def verify_callback(call):
         if not check_joined(user_id):
             bot.send_message(
                 user_id,
-                "❌ <b>Verification Failed</b>\n\nAapne abhi tak channel join nahi kiya hai! Pehle channel join karein warna kuch work nahi karega.",
-                parse_mode="HTML",
+                "❌ Verification Failed\n\nAapne abhi tak channel join nahi kiya hai! Pehle channel join karein warna kuch work nahi karega.",
                 reply_markup=join_keyboard()
             )
             return
 
         reward_referrer_once(user_id)
-        bot.send_message(user_id, "✅ <b>Verification Successful!</b>", parse_mode="HTML")
-        send_welcome_intro(user_id, "🎉 <b>Aapka bot ready hai!</b>")
+        bot.send_message(user_id, "✅ Verification Successful!")
+        send_welcome_intro(user_id, "🎉 Aapka bot ready hai!")
     except Exception as e:
         logger.error("verify_callback error: %s", e)
 
@@ -321,14 +316,13 @@ def handle_text_buttons(message):
 
         if text == SECRET_ADMIN_COMMAND:
             firebase_patch(f"users/{user_id}", {"unlimited_access": True})
-            bot.send_message(user_id, "👑 <b>Secret Admin Access Activated!</b>", parse_mode="HTML", reply_markup=main_keyboard())
+            bot.send_message(user_id, "👑 Secret Admin Access Activated!", reply_markup=main_keyboard())
             return
 
         if not check_joined(user_id):
             bot.send_message(
                 user_id,
-                "⚠️ <b>Access Denied!</b>\n\nBot ko use karne ya refer system chalane ke liye pehle official Telegram Channel join karna compulsory hai!",
-                parse_mode="HTML",
+                "⚠️ Access Denied!\n\nBot ko use karne ya refer system chalane ke liye pehle official Telegram Channel join karna compulsory hai!",
                 reply_markup=join_keyboard()
             )
             return
@@ -336,40 +330,37 @@ def handle_text_buttons(message):
         if "Free Aim AI" in text:
             bot.send_message(
                 user_id,
-                "🎁 <b>Free Aim AI Key Generator</b>\n\n"
+                "🎁 Free Aim AI Key Generator\n\n"
                 "• 5 Points ➡️ 1 Day Key\n"
                 "• 8 Points ➡️ 7 Days Key\n"
                 "• 15 Points ➡️ 15 Days Key\n"
                 "• 100 Points ➡️ Lifetime + Free Panel\n\n"
                 "👇 Apna plan select karein:",
-                parse_mode="HTML",
                 reply_markup=free_plans_keyboard()
             )
         elif "Purchase Aim AI" in text:
             bot.send_message(
                 user_id,
-                "💳 <b>Purchase Aim AI</b>\n\n"
+                "💳 Purchase Aim AI\n\n"
                 "Direct paid key kharadne ke liye owner se contact karein:\n"
-                f"• Telegram: <b>{OWNER_CONTACT}</b>\n"
-                f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
-                parse_mode="HTML",
+                f"• Telegram: {OWNER_CONTACT}\n"
+                f"• WhatsApp: {WHATSAPP_NUMBER}",
                 reply_markup=main_keyboard()
             )
         elif "Purchase Aim AI Panel" in text:
             bot.send_message(
                 user_id,
-                "💎 <b>AIM AI PANEL - KING OF ALL EDITORS</b> 👑\n\n"
-                "🔥 <b>Limited Time Special Offer: Only at ₹400!</b> 🔥\n\n"
+                "💎 AIM AI PANEL - KING OF ALL EDITORS 👑\n\n"
+                "🔥 Limited Time Special Offer: Only at ₹400! 🔥\n\n"
                 "Kyun khareedein yeh panel? Fayde hi fayde:\n"
-                "✅ <b>Unlimited Key Generation:</b> Bina kisi limit ke jitni marzi utni keys khud generate karein!\n"
-                "✅ <b>Start Your Own Business:</b> Khud ka panel bech kar mota munafa kamayein!\n"
-                "✅ <b>100% Branded Panel:</b> Panel par naam aapka hoga!\n"
-                "✅ <b>One time investment:</b> Bar-bar paise dene ki jhanjhat khatam!\n\n"
-                "❌ <i>Free version available nahi hai, isliye time waste mat karein!</i> ❌\n\n"
-                "💬 <b>Purchase karne ke liye contact karein:</b>\n"
-                f"• Telegram: <b>{OWNER_CONTACT}</b>\n"
-                f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
-                parse_mode="HTML",
+                "✅ Unlimited Key Generation: Bina kisi limit ke jitni marzi utni keys khud generate karein!\n"
+                "✅ Start Your Own Business: Khud ka panel bech kar mota munafa kamayein!\n"
+                "✅ 100% Branded Panel: Panel par naam aapka hoga!\n"
+                "✅ One time investment: Bar-bar paise dene ki jhanjhat khatam!\n\n"
+                "❌ Free version available nahi hai, isliye time waste mat karein! ❌\n\n"
+                "💬 Purchase karne ke liye contact karein:\n"
+                f"• Telegram: {OWNER_CONTACT}\n"
+                f"• WhatsApp: {WHATSAPP_NUMBER}",
                 reply_markup=main_keyboard()
             )
         elif "Ninja 8BP" in text:
@@ -381,37 +372,27 @@ def handle_text_buttons(message):
                         bot.send_document(
                             user_id,
                             NINJA_APK_FILE_ID,
-                            caption="🥷 <b>Ninja 8BP - Free APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇",
-                            parse_mode="HTML"
+                            caption="🥷 Ninja 8BP - Free APK File\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇"
                         )
                         return
                     except Exception:
                         pass
                 bot.send_message(
                     user_id,
-                    f"🥷 <b>Ninja 8BP - Free APK Unlocked!</b>\n\n"
-                    f"Aapne 10 refers complete kar liye hain! Download Link:\n{NINJA_APK_LINK}",
-                    parse_mode="HTML",
+                    f"🥷 Ninja 8BP - Free APK Unlocked!\n\nAapne 10 refers complete kar liye hain! Download Link:\n{NINJA_APK_LINK}",
                     reply_markup=main_keyboard()
                 )
             else:
                 bot.send_message(
                     user_id,
-                    f"🥷 <b>Ninja 8BP - Free APK Offer</b>\n\n"
-                    f"Total 10 refers complete karne par aapko sirf APK file free me milegi (Channel join compulsory hai)!\n\n"
-                    f"👥 Aapke current refers: <b>{ninja_count}/10</b>\n\n"
-                    f"💡 Apni referral link se doston ko invite karein!",
-                    parse_mode="HTML",
+                    f"🥷 Ninja 8BP - Free APK Offer\n\nTotal 10 refers complete karne par aapko sirf APK file free me milegi (Channel join compulsory hai)!\n\n👥 Aapke current refers: {ninja_count}/10\n\n💡 Apni referral link se doston ko invite karein!",
                     reply_markup=main_keyboard()
                 )
         elif "My Link" in text:
             link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
             bot.send_message(
                 user_id,
-                f"🔗 <b>Aapki Personal Referral Link</b>\n\n"
-                f"<code>{link}</code>\n\n"
-                f"👥 Is link ko doston ke sath share karein!\n"
-                f"Har ek verified referral par (jo channel join karega) aapko milega <b>+1 Point</b> ⭐",
+                f"🔗 Aapki Personal Referral Link\n\n<code>{link}</code>\n\n👥 Is link ko doston ke sath share karein!\nHar ek verified referral par (jo channel join karega) aapko milega +1 Point ⭐",
                 parse_mode="HTML",
                 reply_markup=main_keyboard()
             )
@@ -421,10 +402,7 @@ def handle_text_buttons(message):
             referrals = int(user.get("referrals", 0)) if user else 0
             bot.send_message(
                 user_id,
-                f"👥 <b>Aapke Referrals Status</b>\n\n"
-                f"👤 Total Referrals: <b>{referrals}</b>\n"
-                f"⭐ Total Points: <b>{points}</b>",
-                parse_mode="HTML",
+                f"👥 Aapke Referrals Status\n\n👤 Total Referrals: {referrals}\n⭐ Total Points: {points}",
                 reply_markup=main_keyboard()
             )
         elif "My Keys" in text:
@@ -433,17 +411,15 @@ def handle_text_buttons(message):
             if not keys:
                 bot.send_message(user_id, "📭 Abhi tak aapne koi key generate nahi ki hai.", reply_markup=main_keyboard())
                 return
-            text_msg = "🔐 <b>Aapki Generated Keys</b>\n\n"
+            text_msg = "🔐 Aapki Generated Keys\n\n"
             for k, info in list(keys.items())[::-1][:20]:
                 text_msg += f"🔑 <code>{k}</code>\n⏳ {info.get('days', '?')} Days\n📅 {info.get('created_at', '-')}\n\n"
             bot.send_message(user_id, text_msg, parse_mode="HTML", reply_markup=main_keyboard())
         elif "Trust Proof" in text:
             bot.send_message(
                 user_id,
-                "🛡️ <b>Trust Proof Channel</b>\n\n"
-                "Customer proofs aur successful deals yahan check karein:\n"
-                f"👉 <b>{PROOF_CHANNEL_LINK}</b>",
-                parse_mode="HTML",
+                "🛡️ Trust Proof Channel\n\n"
+                f"Customer proofs aur successful deals yahan check karein:\n👉 {PROOF_CHANNEL_LINK}",
                 reply_markup=main_keyboard()
             )
         elif "Refresh" in text:
@@ -451,11 +427,10 @@ def handle_text_buttons(message):
         elif "How it works" in text:
             bot.send_message(
                 user_id,
-                "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n"
+                "📖 How It Works (Aasan Bhasha Me)\n\n"
                 "1️⃣ Bot start karne ke liye official Telegram channel join karna compulsory hai.\n"
-                "2️⃣ Apni **Referral Link** doston ke sath share karke points earn karein (1 Refer = 1 Point).\n"
-                f"3️⃣ Free Aim AI ke liye points use karein, ya phir direct paid purchase ke liye <b>{OWNER_CONTACT}</b> par contact karein!",
-                parse_mode="HTML",
+                "2️⃣ Apni Referral Link doston ke sath share karke points earn karein (1 Refer = 1 Point).\n"
+                f"3️⃣ Free Aim AI ke liye points use karein, ya phir direct paid purchase ke liye {OWNER_CONTACT} par contact karein!",
                 reply_markup=main_keyboard()
             )
     except Exception as e:
@@ -472,6 +447,41 @@ def freegen_callback(call):
         if not check_joined(user_id):
             bot.send_message(
                 user_id,
-                "❌ <b>Access Denied</b>\n\nPehle official channel join karein warna key generate nahi hogi!",
-                parse_mode="HTML",
-              
+                "❌ Access Denied\n\nPehle official channel join karein warna key generate nahi hogi!",
+                reply_markup=join_keyboard()
+            )
+            return
+        
+        user = get_user(user_id)
+        if not user:
+            bot.send_message(user_id, "❌ User data nahi mila.", reply_markup=main_keyboard())
+            return
+
+        plan = FREE_PLANS[plan_id]
+        points = int(user.get("points", 0))
+
+        if points < plan["points"]:
+            bot.send_message(
+                user_id,
+                f"❌ Insufficient Points\n\n⭐ Your Points: {points}\nRequired: {plan['points']}\n\n💡 Aur points ke liye apni referral link share karein!",
+                reply_markup=main_keyboard()
+            )
+            return
+
+        key = generate_unique_key()
+        if not key:
+            bot.send_message(user_id, "❌ Key generation failed. Dobara koshish karein.", reply_markup=main_keyboard())
+            return
+
+        new_points = points - plan["points"]
+        
+        time.sleep(0.5)
+        now_utc = datetime.now(timezone.utc)
+        created_at_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        key_data = {
+            "key": key,
+            "username": key,
+            "password": key,
+            "user_id": str(user_id),
+  
