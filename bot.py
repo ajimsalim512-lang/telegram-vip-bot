@@ -1,3 +1,4 @@
+
 import os
 import time
 import random
@@ -11,7 +12,7 @@ import telebot
 from telebot import types
 from flask import Flask, jsonify
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8803139822:AAEYtk1w5AGhzbuCHUsFzGGRg8iW-rOGl0M")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8803139822:AAHu7GVRxXkozRuM7nhWKnPKAsS3iOhlEbY")
 FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL")
 FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app").rstrip("/")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@novaengine01")
@@ -198,7 +199,7 @@ def handle_media_upload(message):
             bot.reply_to(message, f"📁 Document/APK File ID:\n<code>{file_id}</code>", parse_mode="HTML")
     except Exception as e:
         logger.error("Media upload error: %s", e)
-            def main_keyboard():
+    def main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🎁 Free Aim AI"), types.KeyboardButton("💳 Purchase Aim AI"))
     markup.row(types.KeyboardButton("💎 Purchase Aim AI Panel"), types.KeyboardButton("🥷 Ninja 8BP"))
@@ -526,4 +527,4 @@ if __name__ == "__main__":
         start_bot()
     except Exception as e:
         logger.error("Main execution error: %s", e)
-                                 
+    
