@@ -20,19 +20,15 @@ CHANNEL_1_LINK = "https://t.me/novaengine01"
 CHANNEL_2_USERNAME = "@Memonxgamingff"
 CHANNEL_2_LINK = "https://t.me/Memonxgamingff"
 
-FREE_FIRE_APK = "https://t.me/memonxgaming/1060"
-CARROM_APK = "https://t.me/memonxgaming/1060"
-EIGHT_BP_APK = "https://t.me/memonxgaming/1060"
-
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
 FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 
-FREE_FIRE_FILE_ID = os.getenv("FREE_FIRE_FILE_ID", "")
-CARROM_FILE_ID = os.getenv("CARROM_FILE_ID", "")
-EIGHT_BP_FILE_ID = os.getenv("EIGHT_BP_FILE_ID", "")
-REFRESH_NOTIFIED_KEY = "refresh_notified_v2"
+FREE_FIRE_FILENAME = "Memon x gaming panel .apk"
+CARROM_FILENAME = "AimAi v new (1).apk"
+EIGHT_BP_FILENAME = "Ninja_Engine_v2.1.1.apk"
 
+REFRESH_NOTIFIED_KEY = "refresh_notified_v4"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -45,7 +41,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Premium Bot is running."
+    return "Bot is running."
 
 @app.route("/health")
 def health():
@@ -151,8 +147,7 @@ def check_refresh_broadcast(user_id):
             bot.send_message(
                 user_id,
                 "🔄 <b>Bot Refresh Update!</b>\n\n"
-                "Aapka bot successfully refresh aur update ho chuka hai! "
-                "Naye features aur fast speed ke sath ab aap ise use kar sakte hain 🚀",
+                "Aapka bot successfully refresh aur update ho chuka hai! Naye features ke sath ab aap ise use kar sakte hain 🚀",
                 parse_mode="HTML"
             )
             firebase_patch(f"users/{user_id}", {REFRESH_NOTIFIED_KEY: True})
@@ -191,7 +186,7 @@ def reward_all_refs_once(referred_id):
             bot.send_message(
                 int(referrer_id),
                 "🎉 <b>New Referral Joined!</b>\n\n"
-                "Aapki link se ek naye user ne join kar liya hai!\n"
+                "Aapki link se naye user ne join kar liya hai!\n"
                 "⭐ Aapke Free Fire, Carrom aur 8BP teeno me <b>+1 Refer count</b> badh gaya hai! 🚀",
                 parse_mode="HTML"
             )
@@ -200,15 +195,19 @@ def reward_all_refs_once(referred_id):
     except Exception as e:
         logger.error("reward_all_refs_once error: %s", e)
 
-@bot.message_handler(content_types=['video', 'document'])
-def handle_media_upload(message):
+def send_local_apk(user_id, filename, caption):
     try:
-        if message.document:
-            file_id = message.document.file_id
-            bot.reply_to(message, f"📁 <b>Document/APK File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
+        if os.path.exists(filename):
+            with open(filename, "rb") as doc:
+                bot.send_document(user_id, doc, caption=caption, parse_mode="HTML")
+            return True
+        else:
+            logger.error("File not found on server: %s", filename)
     except Exception as e:
-        logger.error("Media upload error: %s", e)
-            def main_menu_keyboard():
+        logger.error("Send local apk error: %s", e)
+    return False
+
+def main_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("🎱 Carrom"))
     markup.row(types.KeyboardButton("🎱 8BP"), types.KeyboardButton("💳 Paid Hack"))
@@ -238,7 +237,6 @@ def start_command(message):
             bot.send_message(user_id, "🎉 <b>Welcome back! Aapka menu ready hai:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
             return
 
-        # Start Human Verification with 5 random emojis
         target = random.choice(VERIFICATION_EMOJIS)
         firebase_patch(f"users/{user_id}", {"verification_step": "emoji", "target_emoji": target})
 
@@ -278,9 +276,9 @@ def emoji_verify_callback(call):
         bot.send_message(
             user_id,
             "✅ <b>Human Verification Passed!</b>\n\n"
-            "⚠️ Ab bot ko fully use karne ke liye hamare <b>dono channels join karna compulsory hai</b>:\n\n"
-            f"1️⃣ <a href='{CHANNEL_1_LINK}'>Channel 1</a>\n"
-            f"2️⃣ <a href='{CHANNEL_2_LINK}'>Channel 2</a>\n\n"
+            "⚠️ Ab bot ko use karne ke liye hamare <b>dono channels join karna compulsory hai</b>:\n\n"
+            f"1️⃣ <a href='{CHANNEL_1_LINK}'>Channel 1 (@novaengine01)</a>\n"
+            f"2️⃣ <a href='{CHANNEL_2_LINK}'>Channel 2 (@Memonxgamingff)</a>\n\n"
             "👇 Dono join karne ke baad niche button dabayein:",
             parse_mode="HTML",
             reply_markup=channels_join_keyboard(),
@@ -331,47 +329,35 @@ def handle_menu_actions(message):
         if "Free Fire" in text:
             ff_count = int(user.get("ff_refs", 0))
             if ff_count >= 10:
-                if FREE_FIRE_FILE_ID:
-                    try:
-                        bot.send_document(user_id, FREE_FIRE_FILE_ID, caption="🔥 <b>Free Fire APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
-                        return
-                    except Exception:
-                        pass
-                bot.send_message(user_id, f"🔥 <b>Free Fire APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{FREE_FIRE_APK}", parse_mode="HTML", reply_markup=main_menu_keyboard())
+                sent = send_local_apk(user_id, FREE_FIRE_FILENAME, "🔥 <b>Free Fire APK File Unlocked!</b>\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇")
+                if not sent:
+                    bot.send_message(user_id, f"🔥 <b>Free Fire APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! File name: <code>{FREE_FIRE_FILENAME}</code> (Make sure file is uploaded on GitHub)", parse_mode="HTML", reply_markup=main_menu_keyboard())
             else:
-                bot.send_message(user_id, f"🔥 <b>Free Fire Free Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{ff_count}/10</b>\n\n💡 Apni link share karke doston ko invite karein!", parse_mode="HTML", reply_markup=main_menu_keyboard())
+                bot.send_message(user_id, f"🔥 <b>Free Fire Hack Offer</b>\n\nFree me APK lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{ff_count}/10</b>\n\n💡 Apni link share karke doston ko invite karein!", parse_mode="HTML", reply_markup=main_menu_keyboard())
 
         elif "Carrom" in text:
             carrom_count = int(user.get("carrom_refs", 0))
             if carrom_count >= 10:
-                if CARROM_FILE_ID:
-                    try:
-                        bot.send_document(user_id, CARROM_FILE_ID, caption="🎱 <b>Carrom AimAi v new APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
-                        bot.send_message(user_id, f"🔑 Key generate karne ke liye yahan jayein: <b>{FREE_KEY_BOT}</b>", parse_mode="HTML")
-                        return
-                    except Exception:
-                        pass
-                bot.send_message(user_id, f"🎱 <b>Carrom AimAi v new APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{CARROM_APK}\n\n🔑 Key yahan se generate karein: <b>{FREE_KEY_BOT}</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
+                sent = send_local_apk(user_id, CARROM_FILENAME, "🎱 <b>Carrom AimAi v new APK File Unlocked!</b>\nAapne 10 refers complete kar liye hain! Yeh rahi aapki APK file 👇")
+                bot.send_message(user_id, f"🔑 <b>Key yahan se generate karein:</b> {FREE_KEY_BOT}", parse_mode="HTML")
+                if not sent:
+                    bot.send_message(user_id, f"🎱 <b>Carrom AimAi v new APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! File name: <code>{CARROM_FILENAME}</code>\n\n🔑 Key yahan se generate karein: <b>{FREE_KEY_BOT}</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
             else:
                 bot.send_message(user_id, f"🎱 <b>Carrom Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{carrom_count}/10</b>\n\n💡 Key yahan se generate karein (refer complete hone ke baad): <b>{FREE_KEY_BOT}</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
 
         elif "8BP" in text:
             bp_count = int(user.get("bp_refs", 0))
             if bp_count >= 10:
-                if EIGHT_BP_FILE_ID:
-                    try:
-                        bot.send_document(user_id, EIGHT_BP_FILE_ID, caption="🎱 <b>8BP - ninja_Engine_v.1.1 APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
-                        return
-                    except Exception:
-                        pass
-                bot.send_message(user_id, f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{EIGHT_BP_APK}", parse_mode="HTML", reply_markup=main_menu_keyboard())
+                sent = send_local_apk(user_id, EIGHT_BP_FILENAME, "🎱 <b>8BP - ninja_Engine_v.1.1 APK File Unlocked!</b>\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇")
+                if not sent:
+                    bot.send_message(user_id, f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! File name: <code>{EIGHT_BP_FILENAME}</code>", parse_mode="HTML", reply_markup=main_menu_keyboard())
             else:
                 bot.send_message(user_id, f"🎱 <b>8BP Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{bp_count}/10</b>\n\n💡 Apni link share karke doston ko invite karein!", parse_mode="HTML", reply_markup=main_menu_keyboard())
 
         elif "Paid Hack" in text:
             bot.send_message(
                 user_id,
-                "💎 <b>PAID HACK DIRECT PURCHASE</b> 👑\n\n"
+                "💳 <b>PAID HACK DIRECT PURCHASE</b> 👑\n\n"
                 "Aap direct paid hack kharidne ke liye owner se contact kar sakte hain:\n"
                 f"• Telegram Owner: <b>{OWNER_CONTACT}</b>\n"
                 f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
@@ -431,4 +417,4 @@ if __name__ == "__main__":
         start_bot()
     except Exception as e:
         logger.error("Main execution error: %s", e)
-        
+            
