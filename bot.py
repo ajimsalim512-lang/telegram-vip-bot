@@ -1,1346 +1,434 @@
 import os
-import uuid
-import secrets
+import time
+import random
 import string
-import logging
 import threading
-from datetime import datetime, timezone, timedelta
+import logging
+from datetime import datetime, timezone
 
 import requests
-from flask import Flask
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-)
-from telegram.constants import ChatMemberStatus
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+import telebot
+from telebot import types
+from flask import Flask, jsonify
 
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8803139822:AAHu7GVRxXkozRuM7nhWKnPKAsS3iOhlEbY")
+FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL")
+FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app").rstrip("/")
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
+CHANNEL_1_USERNAME = "@novaengine01"
+CHANNEL_1_LINK = "https://t.me/novaengine01"
+CHANNEL_2_USERNAME = "@Memonxgamingff"
+CHANNEL_2_LINK = "https://t.me/Memonxgamingff"
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+FREE_FIRE_APK = "https://t.me/memonxgaming/1060"
+CARROM_APK = "https://t.me/memonxgaming/1060"
+EIGHT_BP_APK = "https://t.me/memonxgaming/1060"
 
-FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "").strip()
+OWNER_CONTACT = "@Memonsalim"
+WHATSAPP_NUMBER = "+91 6354525228"
+FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 
-FIREBASE_DB_URL = (
-    "https://aimai-817ef-default-rtdb.asia-southeast1."
-    "firebasedatabase.app"
-)
+FREE_FIRE_FILE_ID = os.getenv("FREE_FIRE_FILE_ID", "")
+CARROM_FILE_ID = os.getenv("CARROM_FILE_ID", "")
+EIGHT_BP_FILE_ID = os.getenv("EIGHT_BP_FILE_ID", "")
+REFRESH_NOTIFIED_KEY = "refresh_notified_v2"
 
-OFFICIAL_CHANNEL = "@novaengine01"
-OFFICIAL_CHANNEL_LINK = "https://t.me/novaengine01"
+VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 
-APP_DOWNLOAD_LINK = "https://t.me/memonxgaming/1060"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logger = logging.getLogger("premium-bot")
 
-OWNER_TELEGRAM = "@Memonsalim"
-OWNER_WHATSAPP = "+91 6354525228"
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+BOT_USERNAME = ""
 
-TRUST_PROOF_CHANNEL = "https://t.me/proofnovaengine"
+app = Flask(__name__)
 
-ADMIN_SECRET = os.getenv("ADMIN_SECRET", "").strip()
+@app.route("/")
+def home():
+    return "Premium Bot is running."
 
-# Screenshot mein jo APK filename hai:
-NINJA_APK_PATH = "Ninja_Engine_V2.1.apk"
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "bot": "running", "time": datetime.now(timezone.utc).isoformat()})
 
-PORT = int(os.getenv("PORT", "10000"))
+@app.route("/ping")
+def ping():
+    return "pong"
 
-
-# ============================================================
-# LOGGING
-# ============================================================
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-
-logger = logging.getLogger(__name__)
-
-
-# ============================================================
-# FLASK SERVER
-# ============================================================
-
-flask_app = Flask(__name__)
-
-
-@flask_app.route("/")
-def home_route():
+def run_web_server():
     try:
-        return "Aim AI Telegram Bot is running.", 200
+        port = int(os.getenv("PORT", "10000"))
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
     except Exception as e:
-        logger.exception("Home route error: %s", e)
-        return "Server error", 500
+        logger.error("Flask server error: %s", e)
 
+def firebase_url(path=""):
+    path = path.strip("/")
+    url = f"{FIREBASE_URL}/{path}.json" if path else f"{FIREBASE_URL}/.json"
+    return f"{url}?auth={FIREBASE_AUTH}"
 
-@flask_app.route("/health")
-def health_route():
+def firebase_get(path=""):
     try:
-        return "OK", 200
+        response = requests.get(firebase_url(path), timeout=10)
+        return response.json() if response.status_code == 200 else None
     except Exception as e:
-        logger.exception("Health route error: %s", e)
-        return "ERROR", 500
-
-
-@flask_app.route("/ping")
-def ping_route():
-    try:
-        return "PONG", 200
-    except Exception as e:
-        logger.exception("Ping route error: %s", e)
-        return "ERROR", 500
-
-
-def run_flask():
-    try:
-        flask_app.run(
-            host="0.0.0.0",
-            port=PORT,
-            debug=False,
-            use_reloader=False,
-        )
-    except Exception as e:
-        logger.exception("Flask server error: %s", e)
-
-
-# ============================================================
-# TIME HELPERS
-# ============================================================
-
-def utc_now():
-    try:
-        return datetime.now(timezone.utc)
-    except Exception as e:
-        logger.exception("utc_now error: %s", e)
-        return datetime.now(timezone.utc)
-
-
-def iso_now():
-    try:
-        return utc_now().isoformat()
-    except Exception as e:
-        logger.exception("iso_now error: %s", e)
-        return datetime.now(timezone.utc).isoformat()
-
-
-# ============================================================
-# FIREBASE REST HELPERS
-# ============================================================
-
-def firebase_url(path):
-    try:
-        clean_path = str(path).strip("/")
-
-        url = (
-            FIREBASE_DB_URL.rstrip("/")
-            + "/"
-            + clean_path
-            + ".json"
-        )
-
-        if FIREBASE_AUTH:
-            url += "?auth=" + FIREBASE_AUTH
-
-        return url
-
-    except Exception as e:
-        logger.exception("firebase_url error: %s", e)
-        return ""
-
-
-def firebase_get(path):
-    try:
-        url = firebase_url(path)
-
-        if not url:
-            return None
-
-        response = requests.get(
-            url,
-            timeout=15,
-        )
-
-        response.raise_for_status()
-
-        return response.json()
-
-    except Exception as e:
-        logger.exception("Firebase GET error [%s]: %s", path, e)
+        logger.error("Firebase GET exception: %s", e)
         return None
-
 
 def firebase_put(path, data):
     try:
-        url = firebase_url(path)
-
-        if not url:
-            return False
-
-        response = requests.put(
-            url,
-            json=data,
-            timeout=15,
-        )
-
-        response.raise_for_status()
-
-        return True
-
+        response = requests.put(firebase_url(path), json=data, timeout=10)
+        return response.status_code in (200, 201)
     except Exception as e:
-        logger.exception("Firebase PUT error [%s]: %s", path, e)
+        logger.error("Firebase PUT exception: %s", e)
         return False
-
 
 def firebase_patch(path, data):
     try:
-        url = firebase_url(path)
-
-        if not url:
-            return False
-
-        response = requests.patch(
-            url,
-            json=data,
-            timeout=15,
-        )
-
-        response.raise_for_status()
-
-        return True
-
+        response = requests.patch(firebase_url(path), json=data, timeout=10)
+        return response.status_code in (200, 201)
     except Exception as e:
-        logger.exception("Firebase PATCH error [%s]: %s", path, e)
+        logger.error("Firebase PATCH exception: %s", e)
         return False
-
-
-def firebase_delete(path):
-    try:
-        url = firebase_url(path)
-
-        if not url:
-            return False
-
-        response = requests.delete(
-            url,
-            timeout=15,
-        )
-
-        response.raise_for_status()
-
-        return True
-
-    except Exception as e:
-        logger.exception("Firebase DELETE error [%s]: %s", path, e)
-        return False
-
-
-# ============================================================
-# USER DATABASE
-# ============================================================
 
 def get_user(user_id):
+    data = firebase_get(f"users/{user_id}")
+    return data if isinstance(data, dict) else None
+
+def create_user_if_missing(telegram_user, referrer_id=None):
     try:
-        return firebase_get(f"users/{user_id}")
+        user_id = telegram_user.id
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        old = get_user(user_id)
+
+        if old is None:
+            ref = int(referrer_id) if referrer_id and int(referrer_id) != user_id else None
+            data = {
+                "id": user_id,
+                "username": telegram_user.username or "",
+                "first_name": telegram_user.first_name or "",
+                "ff_refs": 0,
+                "carrom_refs": 0,
+                "bp_refs": 0,
+                "referrer_id": ref,
+                "verified": False,
+                "verification_step": "emoji",
+                "target_emoji": "",
+                "started": True,
+                "created_at": now,
+                "last_seen": now,
+                "referral_rewards": {}
+            }
+            firebase_put(f"users/{user_id}", data)
+            return data
+
+        patch = {"username": telegram_user.username or "", "first_name": telegram_user.first_name or "", "last_seen": now, "started": True}
+        if referrer_id and int(referrer_id) != user_id and not old.get("referrer_id"):
+            patch["referrer_id"] = int(referrer_id)
+
+        firebase_patch(f"users/{user_id}", patch)
+        old.update(patch)
+        return old
     except Exception as e:
-        logger.exception("get_user error: %s", e)
+        logger.error("create_user_if_missing error: %s", e)
         return None
 
-
-def create_user(tg_user):
+def check_joined_both(user_id):
     try:
-        user_id = str(tg_user.id)
-
-        existing = get_user(user_id)
-
-        if existing:
-            return existing
-
-        now = iso_now()
-
-        data = {
-            "telegram_id": tg_user.id,
-            "username": tg_user.username or "",
-            "first_name": tg_user.first_name or "",
-            "points": 0,
-            "referrals": 0,
-            "ninja_ref_count": 0,
-            "referred_by": None,
-            "referral_rewarded": False,
-            "created_at": now,
-            "updated_at": now,
-        }
-
-        firebase_put(
-            f"users/{user_id}",
-            data,
-        )
-
-        return data
-
+        m1 = bot.get_chat_member(CHANNEL_1_USERNAME, int(user_id))
+        m2 = bot.get_chat_member(CHANNEL_2_USERNAME, int(user_id))
+        ok1 = m1.status in ("member", "administrator", "creator")
+        ok2 = m2.status in ("member", "administrator", "creator")
+        return ok1 and ok2
     except Exception as e:
-        logger.exception("create_user error: %s", e)
-        return None
-
-
-def update_user(user_id, data):
-    try:
-        update_data = dict(data)
-        update_data["updated_at"] = iso_now()
-
-        return firebase_patch(
-            f"users/{user_id}",
-            update_data,
-        )
-
-    except Exception as e:
-        logger.exception("update_user error: %s", e)
+        logger.error("Membership check error: %s", e)
         return False
 
-
-# ============================================================
-# MEMBERSHIP
-# ============================================================
-
-async def check_membership(update, context):
+def check_refresh_broadcast(user_id):
     try:
-        user = update.effective_user
-
-        if not user:
-            return False
-
-        member = await context.bot.get_chat_member(
-            chat_id=OFFICIAL_CHANNEL,
-            user_id=user.id,
-        )
-
-        allowed_statuses = {
-            ChatMemberStatus.MEMBER,
-            ChatMemberStatus.ADMINISTRATOR,
-            ChatMemberStatus.OWNER,
-        }
-
-        return member.status in allowed_statuses
-
-    except Exception as e:
-        logger.exception("Membership check error: %s", e)
-        return False
-
-
-def join_keyboard():
-    try:
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    "📢 Join Official Channel",
-                    url=OFFICIAL_CHANNEL_LINK,
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "✅ Verify Joining",
-                    callback_data="verify_join",
-                )
-            ],
-        ]
-
-        return InlineKeyboardMarkup(buttons)
-
-    except Exception as e:
-        logger.exception("join_keyboard error: %s", e)
-        return InlineKeyboardMarkup([])
-
-
-async def force_join(update, context):
-    try:
-        joined = await check_membership(update, context)
-
-        if joined:
-            return True
-
-        text = (
-            "🔒 <b>Channel Join Required</b>\n\n"
-            "Bot use karne se pehle hamare official channel ko "
-            "join karna mandatory hai.\n\n"
-            "1️⃣ Join Official Channel\n"
-            "2️⃣ Verify Joining\n"
-        )
-
-        if update.callback_query:
-            try:
-                await update.callback_query.answer()
-            except Exception:
-                pass
-
-            await update.callback_query.message.reply_text(
-                text,
-                reply_markup=join_keyboard(),
-                parse_mode="HTML",
-            )
-
-        elif update.message:
-            await update.message.reply_text(
-                text,
-                reply_markup=join_keyboard(),
-                parse_mode="HTML",
-            )
-
-        return False
-
-    except Exception as e:
-        logger.exception("force_join error: %s", e)
-        return False
-
-
-# ============================================================
-# KEYBOARDS
-# ============================================================
-
-def main_keyboard():
-    try:
-        keyboard = [
-            ["🎁 Free Aim AI", "💳 Purchase Aim AI"],
-            ["💎 Purchase Aim AI Panel", "🥷 Ninja 8BP"],
-            ["🔗 My Link", "👥 Referrals"],
-            ["🔑 My Keys", "🛡️ Trust Proof"],
-            ["🔄 Refresh", "ℹ️ How it works"],
-        ]
-
-        return ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True,
-            is_persistent=True,
-        )
-
-    except Exception as e:
-        logger.exception("main_keyboard error: %s", e)
-        return ReplyKeyboardMarkup([])
-
-
-def plan_keyboard():
-    try:
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    "🔑 1 Day — 5 Points",
-                    callback_data="plan_1day",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔑 7 Days — 8 Points",
-                    callback_data="plan_7day",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔑 15 Days — 15 Points",
-                    callback_data="plan_15day",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "👑 Lifetime + Panel — 100 Points",
-                    callback_data="plan_lifetime",
-                )
-            ],
-        ]
-
-        return InlineKeyboardMarkup(keyboard)
-
-    except Exception as e:
-        logger.exception("plan_keyboard error: %s", e)
-        return InlineKeyboardMarkup([])
-
-
-# ============================================================
-# PLANS
-# ============================================================
-
-PLANS = {
-    "1day": {
-        "points": 5,
-        "days": 1,
-        "name": "1 Day",
-    },
-    "7day": {
-        "points": 8,
-        "days": 7,
-        "name": "7 Days",
-    },
-    "15day": {
-        "points": 15,
-        "days": 15,
-        "name": "15 Days",
-    },
-    "lifetime": {
-        "points": 100,
-        "days": None,
-        "name": "Lifetime + Free Panel",
-    },
-}
-
-
-# ============================================================
-# RANDOM KEY GENERATION
-# ============================================================
-
-def random_value(length):
-    try:
-        alphabet = string.ascii_uppercase + string.digits
-
-        return "".join(
-            secrets.choice(alphabet)
-            for _ in range(length)
-        )
-
-    except Exception as e:
-        logger.exception("random_value error: %s", e)
-        return uuid.uuid4().hex.upper()
-
-
-def create_key(plan_name, days):
-    try:
-        now = utc_now()
-
-        if days is None:
-            expires_at = None
-        else:
-            expires_at = (
-                now + timedelta(days=days)
-            ).isoformat()
-
-        record = {
-            "id": uuid.uuid4().hex,
-            "username": random_value(12),
-            "password": random_value(18),
-            "key": random_value(24),
-            "plan": plan_name,
-            "created_at": now.isoformat(),
-            "expires_at": expires_at,
-            "active": True,
-        }
-
-        return record
-
-    except Exception as e:
-        logger.exception("create_key error: %s", e)
-        return None
-
-
-def save_key(user_id, record):
-    try:
-        if not record:
-            return False
-
-        key_id = record.get("id")
-
-        if not key_id:
-            return False
-
-        return firebase_put(
-            f"keys/{user_id}/{key_id}",
-            record,
-        )
-
-    except Exception as e:
-        logger.exception("save_key error: %s", e)
-        return False# ============================================================
-# KEY VALIDATION
-# ============================================================
-
-def key_is_valid(record):
-    try:
-        if not record:
-            return False
-
-        if not record.get("active", False):
-            return False
-
-        expires_at = record.get("expires_at")
-
-        if expires_at is None:
-            return True
-
-        expiry = datetime.fromisoformat(
-            str(expires_at).replace("Z", "+00:00")
-        )
-
-        if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)
-
-        return utc_now() < expiry
-
-    except Exception as e:
-        logger.exception("key_is_valid error: %s", e)
-        return False
-
-
-# ============================================================
-# SAFE REPLY
-# ============================================================
-
-async def safe_reply(update, text, **kwargs):
-    try:
-        if update.message:
-            return await update.message.reply_text(
-                text,
-                **kwargs,
-            )
-
-        if update.callback_query:
-            return await update.callback_query.message.reply_text(
-                text,
-                **kwargs,
-            )
-
-        return None
-
-    except Exception as e:
-        logger.exception("safe_reply error: %s", e)
-        return None
-
-
-# ============================================================
-# WELCOME
-# ============================================================
-
-async def send_welcome(update, context):
-    try:
-        text = (
-            "🎯 <b>Welcome to Aim AI</b>\n\n"
-            "Premium Aim AI services aur Ninja 8BP access "
-            "ke liye neeche menu use karein.\n\n"
-            "👥 Referral se Points earn karein.\n"
-            "🔑 Points se keys redeem karein."
-        )
-
-        await safe_reply(
-            update,
-            text,
-            parse_mode="HTML",
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception as e:
-        logger.exception("send_welcome error: %s", e)
-
-
-# ============================================================
-# FREE AIM AI
-# ============================================================
-
-async def free_aim_ai(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        text = (
-            "🎁 <b>Free Aim AI</b>\n\n"
-            "Referral system se points collect karein.\n\n"
-            "🎯 5 Points = 1 Day Key\n"
-            "🎯 8 Points = 7 Days Key\n"
-            "🎯 15 Points = 15 Days Key\n"
-            "👑 100 Points = Lifetime + Free Panel\n\n"
-            "👇 Key redeem karne ke liye button use karein."
-        )
-
-        await safe_reply(
-            update,
-            text,
-            parse_mode="HTML",
-            reply_markup=plan_keyboard(),
-        )
-
-    except Exception as e:
-        logger.exception("free_aim_ai error: %s", e)
-
-
-# ============================================================
-# GENERATE PLAN KEY
-# ============================================================
-
-async def generate_plan(update, context, plan_id):
-    try:
-        if not await force_join(update, context):
-            return
-
-        if plan_id not in PLANS:
-            await safe_reply(
-                update,
-                "❌ Invalid plan.",
-            )
-            return
-
-        user = update.effective_user
-
-        if not user:
-            return
-
-        user_id = str(user.id)
-
-        db_user = get_user(user_id)
-
-        if not db_user:
-            db_user = create_user(user)
-
-        if not db_user:
-            await safe_reply(
-                update,
-                "❌ Database error. Please try again.",
-            )
-            return
-
-        plan = PLANS[plan_id]
-
-        points = int(db_user.get("points", 0))
-
-        required_points = int(
-            plan["points"]
-        )
-
-        if points < required_points:
-            remaining = required_points - points
-
-            await safe_reply(
-                update,
-                (
-                    f"❌ <b>Insufficient Points</b>\n\n"
-                    f"Required: {required_points} Points\n"
-                    f"Your Points: {points}\n"
-                    f"Remaining: {remaining}"
-                ),
-                parse_mode="HTML",
-            )
-
-            return
-
-        record = create_key(
-            plan["name"],
-            plan["days"],
-        )
-
-        if not record:
-            await safe_reply(
-                update,
-                "❌ Key generation failed.",
-            )
-            return
-
-        saved = save_key(
-            user_id,
-            record,
-        )
-
-        if not saved:
-            await safe_reply(
-                update,
-                "❌ Could not save key. Points were not deducted.",
-            )
-            return
-
-        new_points = points - required_points
-
-        updated = update_user(
-            user_id,
-            {
-                "points": new_points,
-            },
-        )
-
-        if not updated:
-            logger.warning(
-                "Points update failed for user %s",
+        user = get_user(user_id)
+        if user and not user.get(REFRESH_NOTIFIED_KEY, False):
+            bot.send_message(
                 user_id,
+                "🔄 <b>Bot Refresh Update!</b>\n\n"
+                "Aapka bot successfully refresh aur update ho chuka hai! "
+                "Naye features aur fast speed ke sath ab aap ise use kar sakte hain 🚀",
+                parse_mode="HTML"
             )
+            firebase_patch(f"users/{user_id}", {REFRESH_NOTIFIED_KEY: True})
+    except Exception:
+        pass
 
-        message = (
-            f"Username: {record['username']}\n"
-            f"Password: {record['password']}\n"
-            f"Key: {record['key']}\n"
-            f"Validity: {record['plan']}\n"
-            f"App Download Link: {APP_DOWNLOAD_LINK}"
-        )
-
-        await safe_reply(
-            update,
-            "✅ <b>Key Generated Successfully</b>\n\n"
-            + message,
-            parse_mode="HTML",
-        )
-
-    except Exception as e:
-        logger.exception("generate_plan error: %s", e)
-
-        await safe_reply(
-            update,
-            "❌ Something went wrong. Please try again.",
-        )
-
-
-# ============================================================
-# REFERRAL PROCESSING
-# ============================================================
-
-async def process_referral(new_user_id, referral_code):
+def reward_all_refs_once(referred_id):
     try:
-        if not referral_code:
-            return False
-
-        referral_code = str(referral_code).strip()
-
-        if not referral_code.startswith("ref_"):
-            return False
-
-        referrer_id = referral_code[4:]
-
-        if not referrer_id.isdigit():
-            return False
-
-        if str(referrer_id) == str(new_user_id):
-            return False
-
-        new_user = get_user(new_user_id)
-
-        if not new_user:
-            return False
-
-        if new_user.get("referral_rewarded", False):
-            return False
-
+        referred = get_user(referred_id)
+        if not referred:
+            return
+        referrer_id = referred.get("referrer_id")
+        if not referrer_id or int(referrer_id) == int(referred_id):
+            return
         referrer = get_user(referrer_id)
-
         if not referrer:
-            return False
+            return
 
-        current_points = int(
-            referrer.get("points", 0)
-        )
+        rewards = referrer.get("referral_rewards", {})
+        if str(referred_id) in rewards:
+            return
 
-        current_referrals = int(
-            referrer.get("referrals", 0)
-        )
+        ff = int(referrer.get("ff_refs", 0))
+        carrom = int(referrer.get("carrom_refs", 0))
+        bp = int(referrer.get("bp_refs", 0))
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        current_ninja = int(
-            referrer.get("ninja_ref_count", 0)
-        )
-
-        update_referrer = update_user(
-            referrer_id,
-            {
-                "points": current_points + 1,
-                "referrals": current_referrals + 1,
-                "ninja_ref_count": current_ninja + 1,
-            },
-        )
-
-        if not update_referrer:
-            return False
-
-        update_user(
-            new_user_id,
-            {
-                "referred_by": str(referrer_id),
-                "referral_rewarded": True,
-            },
-        )
+        firebase_patch(f"users/{referrer_id}", {
+            "ff_refs": ff + 1,
+            "carrom_refs": carrom + 1,
+            "bp_refs": bp + 1,
+            f"referral_rewards/{referred_id}": {"rewarded_at": now}
+        })
 
         try:
-            await application_instance.bot.send_message(
-                chat_id=int(referrer_id),
-                text=(
-                    "🎉 <b>New Verified Referral!</b>\n\n"
-                    "+1 Point added.\n"
-                    f"Total Points: {current_points + 1}\n"
-                    f"Total Referrals: {current_referrals + 1}"
-                ),
-                parse_mode="HTML",
+            bot.send_message(
+                int(referrer_id),
+                "🎉 <b>New Referral Joined!</b>\n\n"
+                "Aapki link se ek naye user ne join kar liya hai!\n"
+                "⭐ Aapke Free Fire, Carrom aur 8BP teeno me <b>+1 Refer count</b> badh gaya hai! 🚀",
+                parse_mode="HTML"
             )
         except Exception:
             pass
-
-        return True
-
     except Exception as e:
-        logger.exception("process_referral error: %s", e)
-        return False
+        logger.error("reward_all_refs_once error: %s", e)
 
-
-# ============================================================
-# REFERRAL MENU
-# ============================================================
-
-async def referrals(update, context):
+@bot.message_handler(content_types=['video', 'document'])
+def handle_media_upload(message):
     try:
-        if not await force_join(update, context):
+        if message.document:
+            file_id = message.document.file_id
+            bot.reply_to(message, f"📁 <b>Document/APK File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")
+    except Exception as e:
+        logger.error("Media upload error: %s", e)
+            def main_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("🎱 Carrom"))
+    markup.row(types.KeyboardButton("🎱 8BP"), types.KeyboardButton("💳 Paid Hack"))
+    markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 My Status"))
+    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🔄 Refresh"))
+    return markup
+
+def channels_join_keyboard():
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📢 Join Channel 1", url=CHANNEL_1_LINK))
+    markup.add(types.InlineKeyboardButton("📢 Join Channel 2", url=CHANNEL_2_LINK))
+    markup.add(types.InlineKeyboardButton("✅ Verify Channels Joined", callback_data="verify_channels"))
+    return markup
+
+@bot.message_handler(commands=["start"])
+def start_command(message):
+    try:
+        user_id = message.from_user.id
+        args = message.text.split()
+        referrer_id = args[1] if len(args) > 1 and args[1].isdigit() else None
+
+        user = create_user_if_missing(message.from_user, referrer_id)
+        check_refresh_broadcast(user_id)
+
+        if user.get("verified", False) and check_joined_both(user_id):
+            reward_all_refs_once(user_id)
+            bot.send_message(user_id, "🎉 <b>Welcome back! Aapka menu ready hai:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
             return
 
-        user = update.effective_user
+        # Start Human Verification with 5 random emojis
+        target = random.choice(VERIFICATION_EMOJIS)
+        firebase_patch(f"users/{user_id}", {"verification_step": "emoji", "target_emoji": target})
 
+        markup = types.InlineKeyboardMarkup(row_width=5)
+        buttons = [types.InlineKeyboardButton(e, callback_data=f"emoji:{e}") for e in VERIFICATION_EMOJIS]
+        random.shuffle(buttons)
+        markup.add(*buttons)
+
+        bot.send_message(
+            user_id,
+            f"🤖 <b>Human Verification Required</b>\n\n"
+            f"Please niche diye gaye emojis me se <b>{target}</b> emoji par click karein taaki prove ho sake aap human hain:",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+    except Exception as e:
+        logger.error("start_command error: %s", e)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("emoji:"))
+def emoji_verify_callback(call):
+    try:
+        user_id = call.from_user.id
+        _, clicked = call.data.split(":", 1)
+        bot.answer_callback_query(call.id)
+
+        user = get_user(user_id)
         if not user:
             return
 
-        db_user = get_user(str(user.id))
+        target = user.get("target_emoji", "")
+        if clicked != target:
+            bot.send_message(user_id, f"❌ <b>Wrong Emoji!</b> Sahi emoji select karein: {target}", parse_mode="HTML")
+            return
 
-        if not db_user:
-            db_user = create_user(user)
+        firebase_patch(f"users/{user_id}", {"verification_step": "channels"})
 
-        points = int(
-            db_user.get("points", 0)
-        ) if db_user else 0
-
-        referrals_count = int(
-            db_user.get("referrals", 0)
-        ) if db_user else 0
-
-        ninja_count = int(
-            db_user.get("ninja_ref_count", 0)
-        ) if db_user else 0
-
-        bot_info = await context.bot.get_me()
-
-        bot_username = bot_info.username
-
-        referral_link = (
-            f"https://t.me/{bot_username}"
-            f"?start=ref_{user.id}"
-        )
-
-        text = (
-            "👥 <b>Referral System</b>\n\n"
-            f"⭐ Points: {points}\n"
-            f"👥 Verified Referrals: {referrals_count}\n"
-            f"🥷 Ninja Referrals: {ninja_count}\n\n"
-            "🎁 Rewards:\n"
-            "• 5 Points → 1 Day Key\n"
-            "• 8 Points → 7 Days Key\n"
-            "• 15 Points → 15 Days Key\n"
-            "• 100 Points → Lifetime + Free Panel\n\n"
-            "<b>Your Referral Link:</b>\n"
-            f"{referral_link}"
-        )
-
-        await safe_reply(
-            update,
-            text,
+        bot.send_message(
+            user_id,
+            "✅ <b>Human Verification Passed!</b>\n\n"
+            "⚠️ Ab bot ko fully use karne ke liye hamare <b>dono channels join karna compulsory hai</b>:\n\n"
+            f"1️⃣ <a href='{CHANNEL_1_LINK}'>Channel 1</a>\n"
+            f"2️⃣ <a href='{CHANNEL_2_LINK}'>Channel 2</a>\n\n"
+            "👇 Dono join karne ke baad niche button dabayein:",
             parse_mode="HTML",
+            reply_markup=channels_join_keyboard(),
+            disable_web_page_preview=True
         )
-
     except Exception as e:
-        logger.exception("referrals error: %s", e)
+        logger.error("emoji_verify_callback error: %s", e)
 
-
-# ============================================================
-# MY LINK
-# ============================================================
-
-async def my_link(update, context):
+@bot.callback_query_handler(func=lambda call: call.data == "verify_channels")
+def verify_channels_callback(call):
     try:
-        if not await force_join(update, context):
-            return
+        user_id = call.from_user.id
+        bot.answer_callback_query(call.id)
 
-        user = update.effective_user
-
-        if not user:
-            return
-
-        bot_info = await context.bot.get_me()
-
-        link = (
-            f"https://t.me/{bot_info.username}"
-            f"?start=ref_{user.id}"
-        )
-
-        await safe_reply(
-            update,
-            (
-                "🔗 <b>Your Referral Link</b>\n\n"
-                f"{link}\n\n"
-                "Is link ko friends ke saath share karein."
-            ),
-            parse_mode="HTML",
-        )
-
-    except Exception as e:
-        logger.exception("my_link error: %s", e)
-
-
-# ============================================================
-# MY KEYS
-# ============================================================
-
-async def my_keys(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        user = update.effective_user
-
-        if not user:
-            return
-
-        user_id = str(user.id)
-
-        records = firebase_get(
-            f"keys/{user_id}"
-        )
-
-        if not records:
-            await safe_reply(
-                update,
-                "🔑 <b>My Keys</b>\n\nNo keys found.",
+        if not check_joined_both(user_id):
+            bot.send_message(
+                user_id,
+                "❌ <b>Verification Failed!</b>\n\nAapne abhi tak dono channels join nahi kiye hain! Pehle dono join karein phir verify dabayein.",
                 parse_mode="HTML",
+                reply_markup=channels_join_keyboard()
             )
             return
 
-        valid_keys = []
+        firebase_patch(f"users/{user_id}", {"verified": True})
+        reward_all_refs_once(user_id)
 
-        for _, record in records.items():
-            if key_is_valid(record):
-                valid_keys.append(record)
+        bot.send_message(
+            user_id,
+            "🎉 <b>All Verifications Successful!</b>\n\nAapka account successfully verify ho chuka hai 👇",
+            parse_mode="HTML",
+            reply_markup=main_menu_keyboard()
+        )
+    except Exception as e:
+        logger.error("verify_channels_callback error: %s", e)
 
-        if not valid_keys:
-            await safe_reply(
-                update,
-                "🔑 <b>My Keys</b>\n\nNo active keys found.",
+@bot.message_handler(func=lambda message: True)
+def handle_menu_actions(message):
+    try:
+        user_id = message.from_user.id
+        text = (message.text or "").strip()
+        user = create_user_if_missing(message.from_user)
+        check_refresh_broadcast(user_id)
+
+        if not user.get("verified", False) or not check_joined_both(user_id):
+            bot.send_message(user_id, "⚠️ Pehle verification aur channel join complete karein! Type /start", reply_markup=types.ReplyKeyboardRemove())
+            return
+
+        if "Free Fire" in text:
+            ff_count = int(user.get("ff_refs", 0))
+            if ff_count >= 10:
+                if FREE_FIRE_FILE_ID:
+                    try:
+                        bot.send_document(user_id, FREE_FIRE_FILE_ID, caption="🔥 <b>Free Fire APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
+                        return
+                    except Exception:
+                        pass
+                bot.send_message(user_id, f"🔥 <b>Free Fire APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{FREE_FIRE_APK}", parse_mode="HTML", reply_markup=main_menu_keyboard())
+            else:
+                bot.send_message(user_id, f"🔥 <b>Free Fire Free Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{ff_count}/10</b>\n\n💡 Apni link share karke doston ko invite karein!", parse_mode="HTML", reply_markup=main_menu_keyboard())
+
+        elif "Carrom" in text:
+            carrom_count = int(user.get("carrom_refs", 0))
+            if carrom_count >= 10:
+                if CARROM_FILE_ID:
+                    try:
+                        bot.send_document(user_id, CARROM_FILE_ID, caption="🎱 <b>Carrom AimAi v new APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
+                        bot.send_message(user_id, f"🔑 Key generate karne ke liye yahan jayein: <b>{FREE_KEY_BOT}</b>", parse_mode="HTML")
+                        return
+                    except Exception:
+                        pass
+                bot.send_message(user_id, f"🎱 <b>Carrom AimAi v new APK Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{CARROM_APK}\n\n🔑 Key yahan se generate karein: <b>{FREE_KEY_BOT}</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
+            else:
+                bot.send_message(user_id, f"🎱 <b>Carrom Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{carrom_count}/10</b>\n\n💡 Key yahan se generate karein (refer complete hone ke baad): <b>{FREE_KEY_BOT}</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
+
+        elif "8BP" in text:
+            bp_count = int(user.get("bp_refs", 0))
+            if bp_count >= 10:
+                if EIGHT_BP_FILE_ID:
+                    try:
+                        bot.send_document(user_id, EIGHT_BP_FILE_ID, caption="🎱 <b>8BP - ninja_Engine_v.1.1 APK File</b>\n\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇", parse_mode="HTML")
+                        return
+                    except Exception:
+                        pass
+                bot.send_message(user_id, f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! Download Link:\n{EIGHT_BP_APK}", parse_mode="HTML", reply_markup=main_menu_keyboard())
+            else:
+                bot.send_message(user_id, f"🎱 <b>8BP Hack Offer</b>\n\nFree me lene ke liye total 10 refers complete karein!\n👥 Aapke current refers: <b>{bp_count}/10</b>\n\n💡 Apni link share karke doston ko invite karein!", parse_mode="HTML", reply_markup=main_menu_keyboard())
+
+        elif "Paid Hack" in text:
+            bot.send_message(
+                user_id,
+                "💎 <b>PAID HACK DIRECT PURCHASE</b> 👑\n\n"
+                "Aap direct paid hack kharidne ke liye owner se contact kar sakte hain:\n"
+                f"• Telegram Owner: <b>{OWNER_CONTACT}</b>\n"
+                f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
                 parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
             )
-            return
 
-        lines = [
-            "🔑 <b>Your Active Keys</b>",
-            "",
-        ]
+        elif "My Link" in text:
+            link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+            bot.send_message(user_id, f"🔗 <b>Aapki Personal Referral Link:</b>\n\n<code>{link}</code>\n\n👥 Is link ko share karein. Har ek naye user ke join karne par aapke teeno options (Free Fire, Carrom, 8BP) me +1 refer count jud jayega! ⭐", parse_mode="HTML", reply_markup=main_menu_keyboard())
 
-        for index, record in enumerate(
-            valid_keys,
-            start=1,
-        ):
-            lines.append(
-                f"<b>Key #{index}</b>"
-            )
-            lines.append(
-                f"Username: {record.get('username', '')}"
-            )
-            lines.append(
-                f"Password: {record.get('password', '')}"
-            )
-            lines.append(
-                f"Key: {record.get('key', '')}"
-            )
-            lines.append(
-                f"Validity: {record.get('plan', '')}"
-            )
-            lines.append("")
-
-        await safe_reply(
-            update,
-            "\n".join(lines),
-            parse_mode="HTML",
-        )
-
-    except Exception as e:
-        logger.exception("my_keys error: %s", e)
-
-
-# ============================================================
-# NINJA 8BP
-# ============================================================
-
-async def ninja_8bp(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        user = update.effective_user
-
-        if not user:
-            return
-
-        db_user = get_user(str(user.id))
-
-        if not db_user:
-            db_user = create_user(user)
-
-        ninja_count = int(
-            db_user.get("ninja_ref_count", 0)
-        ) if db_user else 0
-
-        required = 10
-
-        if ninja_count < required:
-            remaining = required - ninja_count
-
-            await safe_reply(
-                update,
-                (
-                    "🥷 <b>Ninja 8BP</b>\n\n"
-                    f"Your verified referrals: {ninja_count}/{required}\n\n"
-                    f"❗ {remaining} more referral(s) required.\n\n"
-                    "Referral complete hone ke baad Ninja APK "
-                    "yahan se milega."
-                ),
+        elif "My Status" in text:
+            ff = user.get("ff_refs", 0)
+            carrom = user.get("carrom_refs", 0)
+            bp = user.get("bp_refs", 0)
+            bot.send_message(
+                user_id,
+                f"👥 <b>Aapka Referrals Status</b>\n\n"
+                f"🔥 Free Fire Refers: <b>{ff}/10</b>\n"
+                f"🎱 Carrom Refers: <b>{carrom}/10</b>\n"
+                f"🎱 8BP Refers: <b>{bp}/10</b>",
                 parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
             )
 
-            return
+        elif "Trust Proof" in text:
+            bot.send_message(user_id, "🛡️ <b>Trust Proof Channel:</b>\nCheck customer proofs and successful deals here.", parse_mode="HTML", reply_markup=main_menu_keyboard())
 
-        if not os.path.isfile(NINJA_APK_PATH):
-            await safe_reply(
-                update,
-                (
-                    "❌ Ninja APK server par nahi mili.\n\n"
-                    f"Required filename:\n"
-                    f"<code>{NINJA_APK_PATH}</code>"
-                ),
-                parse_mode="HTML",
-            )
-            return
-
-        await safe_reply(
-            update,
-            "🥷 <b>Ninja 8BP</b>\n\n"
-            "✅ Requirement completed.\n"
-            "📦 APK sending..."
-            ,
-            parse_mode="HTML",
-        )
-
-        with open(
-            NINJA_APK_PATH,
-            "rb",
-        ) as apk_file:
-
-            await context.bot.send_document(
-                chat_id=user.id,
-                document=apk_file,
-                filename=NINJA_APK_PATH,
-                caption=(
-                    "🥷 <b>Ninja 8BP APK</b>\n\n"
-                    "✅ Referral requirement completed."
-                ),
-                parse_mode="HTML",
-            )
-
+        elif "Refresh" in text:
+            bot.send_message(user_id, "🔄 Bot refreshed successfully!", reply_markup=main_menu_keyboard())
     except Exception as e:
-        logger.exception("ninja_8bp error: %s", e)
+        logger.error("handle_menu_actions error: %s", e)
 
-        await safe_reply(
-            update,
-            "❌ APK send karte waqt error aaya.",
-        )
-
-
-# ============================================================
-# PURCHASE AIM AI
-# ============================================================
-
-async def purchase_aim_ai(update, context):
+def load_bot_username():
     try:
-        if not await force_join(update, context):
-            return
-
-        text = (
-            "💳 <b>Purchase Aim AI</b>\n\n"
-            "📲 Telegram:\n"
-            f"{OWNER_TELEGRAM}\n\n"
-            "📱 WhatsApp:\n"
-            f"{OWNER_WHATSAPP}\n\n"
-            "📦 App Download:\n"
-            f"{APP_DOWNLOAD_LINK}"
-        )
-
-        await safe_reply(
-            update,
-            text,
-            parse_mode="HTML",
-        )
-
+        global BOT_USERNAME
+        me = bot.get_me()
+        if me and me.username:
+            BOT_USERNAME = me.username
     except Exception as e:
-        logger.exception("purchase_aim_ai error: %s", e)
+        logger.error("Could not load bot username: %s", e)
 
+def start_bot():
+    while True:
+        try:
+            bot.remove_webhook()
+            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
+        except Exception as e:
+            logger.error("Polling crashed: %s", e)
+            time.sleep(5)
 
-# ============================================================
-# PURCHASE PANEL
-# ============================================================
-
-async def purchase_panel(update, context):
+if __name__ == "__main__":
     try:
-        if not await force_join(update, context):
-            return
-
-        text = (
-            "💎 <b>Aim AI Panel</b>\n\n"
-            "💰 Price: <b>₹400 Lifetime</b>\n\n"
-            "🔥 Panel Features:\n"
-            "• Unlimited key generation\n"
-            "• Keys resale business\n"
-            "• Custom branding\n"
-            "• One-time investment\n"
-            "• No monthly subscription\n\n"
-            "📲 Telegram:\n"
-            f"{OWNER_TELEGRAM}\n\n"
-            "📱 WhatsApp:\n"
-            f"{OWNER_WHATSAPP}"
-        )
-
-        await safe_reply(
-            update,
-            text,
-            parse_mode="HTML",
-        )
-
+        threading.Thread(target=run_web_server, daemon=True).start()
+        time.sleep(2)
+        load_bot_username()
+        start_bot()
     except Exception as e:
-        logger.exception("purchase_panel error: %s", e)
-
-
-# ============================================================
-# TRUST PROOF
-# ============================================================
-
-async def trust_proof(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🛡️ Open Trust Proof",
-                        url=TRUST_PROOF_CHANNEL,
-                    )
-                ]
-            ]
-        )
-
-        await safe_reply(
-            update,
-            (
-                "🛡️ <b>Trust Proof</b>\n\n"
-                "Previous proofs aur customer-related proof "
-                "dekhne ke liye channel open karein."
-            ),
-            parse_mode="HTML",
-            reply_markup=keyboard,
-        )
-
-    except Exception as e:
-        logger.exception("trust_proof error: %s", e)
-
-
-# ============================================================
-# HOW IT WORKS
-# ============================================================
-
-async def how_it_works(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        text = (
-            "ℹ️ <b>How It Works</b>\n\n"
-            "1️⃣ Official channel join karein.\n"
-            "2️⃣ Verify Joining dabayein.\n"
-            "3️⃣ Referral link share karein.\n"
-            "4️⃣ Har verified referral = +1 Point.\n"
-            "5️⃣ Points se key redeem karein.\n\n"
-            "🎯 5 → 1 Day\n"
-            "🎯 8 → 7 Days\n"
-            "🎯 15 → 15 Days\n"
-            "👑 100 → Lifetime + Free Panel\n\n"
-            "🥷 Ninja 8BP ke liye 10 verified Ninja referrals "
-            "required hain."
-        )
-
-        await safe_reply(
-            update,
-            text,
-            parse_mode="HTML",
-        )
-
-    except Exception as e:
-        logger.exception("how_it_works error: %s", e)
-
-
-# ============================================================
-# REFRESH
-# ============================================================
-
-async def refresh(update, context):
-    try:
-        if not await force_join(update, context):
-            return
-
-        await safe_reply(
-            update,
-            "🔄 Menu refreshed.",
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception as e:
-        logger.exception("refresh error: %s", e)
-
-
-# ============================================================
-# VERIFY JOIN CALLBACK
-# ============================================================
-
-async def verify_join_callback(update, context):
-    try:
-        query = update.callback_query
-
-        if not query:
-            return
-
-        await query.answer()
-
-        joined = await check_membership(
-            update,
-            context,
-        )
-
-        if not joined:
-            await query.message.reply_text(
-                "❌ Abhi channel membership verify nahi hui.\n\n"
-                "Pehle channel join karein aur phir Verify Joining dabayein.",
-                reply_markup=join_keyboard(),
-            )
-            return
-
-        await query.message.reply_text(
-            "✅ <b>Membership Verified!</b>\n\n"
-            "Ab bot ke saare features available hain.",
-            parse_mode="HTML",
-            reply_markup=main_keyboard(),
-        )
-
-    except Exception as e:
-        logger.exception(
-            "verify_join_callback error: %s",
-            e,
-        )
-
-
-# ============================================================
-# CALLBACK ROUTER
-# ============================================================
-
-async def callback_router(update, context):
-    try:
-        query = update.callback_query
-
-        if not query:
-            return
-
-        dat
+        logger.error("Main execution error: %s", e)
+        
