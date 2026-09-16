@@ -29,11 +29,11 @@ FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 TRUST_PROOF_LINK = "https://t.me/proofnovaengine"
 
 FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
-CARROM_FILENAME = "AimAi v new (1).apk"
-EIGHT_BP_FILENAME = "Ninja_Engine_v2.1.1.apk"
+CARROM_FILENAME = "AimAi-2.apk"
+EIGHT_BP_FILENAMES = ["Ninja-crack.apk", "AKLoader-3.8.2-random-(arm32 a...apk"]
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v9"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v10"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -252,7 +252,7 @@ def send_local_apk(user_id, filename, caption):
     return False
 
 # =========================================================
-# BACKGROUND WORKER FOR VIDEO (24H FOR NEW / INSTANT FOR OLD)
+# BACKGROUND WORKER FOR VIDEO
 # =========================================================
 def background_video_worker():
     while True:
@@ -270,9 +270,7 @@ def background_video_worker():
                     continue
 
                 created_ts = udata.get("created_timestamp", current_time)
-                # Check if 24 hours (86400 seconds) have passed for new users
                 if (current_time - created_ts) >= 86400:
-                    # Look for any video file in directory or sent via media upload
                     video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
                     if video_files:
                         v_path = video_files[0]
@@ -416,7 +414,6 @@ def verify_channels_callback(call):
         firebase_patch(f"users/{user_id}", {"verified": True})
         reward_referrer_star(user_id)
 
-        # Send instant welcome/intro video for old or verified users right away
         video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
         if video_files:
             try:
@@ -503,4 +500,7 @@ def app_action_callback(call):
             )
 
             if cat_key == "freefire" and "proxy" in fname.lower():
-                sent = send_local_
+                sent = send_local_apk(user_id, fname, f"📥 <b>{app_info['name']} APK File:</b>")
+                if not sent:
+                    bot.send_message(user_id, f"📥 <b>MediaFire Link:</b>\n👉 {FREE_FIRE_MEDIAFIRE}", parse_mode="HTML", disable_web_page_preview=True)
+  
