@@ -29,7 +29,7 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v12"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v15"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -114,7 +114,7 @@ def firebase_patch(path, data):
         return False
 
 def get_user(user_id):
-    data = firebase_get(f"users/{user_id}")
+    data = firebase_get("users/" + str(user_id))
     return data if isinstance(data, dict) else None
 
 def find_user_by_username(username):
@@ -153,14 +153,14 @@ def create_user_if_missing(telegram_user, referrer_id=None):
                 "unlocked_apps": {},
                 "referral_rewards": {}
             }
-            firebase_put(f"users/{user_id}", data)
+            firebase_put("users/" + str(user_id), data)
             return data
 
         patch = {"username": telegram_user.username or "", "first_name": telegram_user.first_name or "", "last_seen": now, "started": True}
         if referrer_id and int(referrer_id) != user_id and not old.get("referrer_id"):
             patch["referrer_id"] = int(referrer_id)
 
-        firebase_patch(f"users/{user_id}", patch)
+        firebase_patch("users/" + str(user_id), patch)
         old.update(patch)
         return old
     except Exception as e:
@@ -186,7 +186,7 @@ def check_refresh_broadcast(user_id):
                 "🔄 <b>Bot Refresh Update!</b>\n\nAapka bot successfully refresh aur update ho chuka hai! Naye sections, faster speed aur 5-star unlock system ke sath ab aap ise use kar sakte hain 🚀",
                 parse_mode="HTML"
             )
-            firebase_patch(f"users/{user_id}", {REFRESH_NOTIFIED_KEY: True})
+            firebase_patch("users/" + str(user_id), {REFRESH_NOTIFIED_KEY: True})
     except Exception:
         pass
 
@@ -210,10 +210,10 @@ def reward_referrer_star(referred_id):
         current_refs = int(referrer.get("referrals", 0))
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        firebase_patch(f"users/{referrer_id}", {
+        firebase_patch("users/" + str(referrer_id), {
             "stars": current_stars + 1,
             "referrals": current_refs + 1,
-            f"referral_rewards/{referred_id}": {"rewarded_at": now}
+            "referral_rewards/" + str(referred_id): {"rewarded_at": now}
         })
 
         try:
@@ -258,7 +258,7 @@ def background_video_worker():
                         try:
                             with open(video_files[0], "rb") as vid:
                                 bot.send_video(int(uid), vid, caption="🎥 <b>Tutorial / Guide Video</b>\nAapke liye special guide video yahan di gayi hai 👇", parse_mode="HTML")
-                            firebase_patch(f"users/{uid}", {"video_sent_24h": True})
+                            firebase_patch("users/" + str(uid), {"video_sent_24h": True})
                         except Exception:
                             pass
         except Exception:
@@ -322,10 +322,10 @@ def start_command(message):
             return
 
         target = random.choice(VERIFICATION_EMOJIS)
-        firebase_patch(f"users/{user_id}", {"verification_step": "emoji", "target_emoji": target})
+        firebase_patch("users/" + str(user_id), {"verification_step": "emoji", "target_emoji": target})
 
         markup = types.InlineKeyboardMarkup(row_width=5)
-        buttons = [types.InlineKeyboardButton(e, callback_data=f"emoji:{e}") for e in VERIFICATION_EMOJIS]
+        buttons = [types.InlineKeyboardButton(e, callback_data="emoji:" + e) for e in VERIFICATION_EMOJIS]
         random.shuffle(buttons)
         markup.add(*buttons)
 
@@ -354,7 +354,7 @@ def emoji_verify_callback(call):
             bot.send_message(user_id, "❌ <b>Wrong Emoji!</b> Sahi emoji select karein: " + target, parse_mode="HTML")
             return
 
-        firebase_patch(f"users/{user_id}", {"verification_step": "channels"})
+        firebase_patch("users/" + str(user_id), {"verification_step": "channels"})
 
         bot.send_message(
             user_id,
@@ -381,7 +381,7 @@ def verify_channels_callback(call):
             )
             return
 
-        firebase_patch(f"users/{user_id}", {"verified": True})
+        firebase_patch("users/" + str(user_id), {"verified": True})
         reward_referrer_star(user_id)
 
         video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
@@ -389,7 +389,7 @@ def verify_channels_callback(call):
             try:
                 with open(video_files[0], "rb") as vid:
                     bot.send_video(user_id, vid, caption="🎥 <b>Welcome Tutorial Video</b>\nAapke liye guide video yahan di gayi hai 👇", parse_mode="HTML")
-                firebase_patch(f"users/{user_id}", {"video_sent_24h": True})
+                firebase_patch("users/" + str(user_id), {"video_sent_24h": True})
             except Exception:
                 pass
 
@@ -453,9 +453,9 @@ def app_action_callback(call):
             new_stars = stars - STARS_REQUIRED_PER_APP if not is_unlimited else stars
             unlocked_dict[fname] = True
 
-            firebase_patch(f"users/{user_id}", {
+            firebase_patch("users/" + str(user_id), {
                 "stars": new_stars,
-                f"unlocked_apps/{fname}": True
+                "unlocked_apps/" + fname: True
             })
 
             bot.send_message(
@@ -486,5 +486,4 @@ def app_action_callback(call):
                 bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
             else:
                 sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
-                if not sent:
-                    bot.send_message(user_id, "⚠️ Fil
+                if not
