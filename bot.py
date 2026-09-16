@@ -33,7 +33,7 @@ CARROM_FILENAME = "AimAi v new (1).apk"
 EIGHT_BP_FILENAME = "Ninja_Engine_v2.1.1.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v6"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v7"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -95,6 +95,15 @@ def firebase_patch(path, data):
 def get_user(user_id):
     data = firebase_get(f"users/{user_id}")
     return data if isinstance(data, dict) else None
+
+def find_user_by_username(username):
+    username = username.lstrip("@").lower()
+    users = firebase_get("users")
+    if isinstance(users, dict):
+        for uid, udata in users.items():
+            if isinstance(udata, dict) and str(udata.get("username", "")).lower() == username:
+                return int(uid), udata
+    return None, None
 
 def create_user_if_missing(telegram_user, referrer_id=None):
     try:
@@ -246,7 +255,6 @@ def start_command(message):
             bot.send_message(user_id, "🎉 <b>Welcome back! Aapka menu ready hai:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
             return
 
-        # Human Verification: Random Emoji selection
         target = random.choice(VERIFICATION_EMOJIS)
         firebase_patch(f"users/{user_id}", {"verification_step": "emoji", "target_emoji": target})
 
@@ -324,6 +332,52 @@ def verify_channels_callback(call):
     except Exception as e:
         logger.error("verify_channels_callback error: %s", e)
 
+@bot.message_handler(commands=["addstars", "sendstars"])
+def add_stars_command(message):
+    try:
+        user_id = message.from_user.id
+        user = get_user(user_id)
+        if not user or not user.get("unlimited_access", False):
+            bot.reply_to(message, "❌ Aapke pas yeh command use karne ka access nahi hai!")
+            return
+
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "⚠️ Sahi format use karein:\n<code>/addstars @username amount</code> ya <code>/addstars userid amount</code>", parse_mode="HTML")
+            return
+
+        target_query = parts[1]
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            bot.reply_to(message, "❌ Amount ek number honi chahiye!")
+            return
+
+        target_uid = None
+        target_data = None
+
+        if target_query.isdigit():
+            target_uid = int(target_query)
+            target_data = get_user(target_uid)
+        else:
+            target_uid, target_data = find_user_by_username(target_query)
+
+        if not target_data:
+            bot.reply_to(message, "❌ User database me nahi mila!")
+            return
+
+        current_stars = int(target_data.get("stars", 0))
+        new_stars = current_stars + amount
+        firebase_patch(f"users/{target_uid}", {"stars": new_stars})
+
+        bot.reply_to(message, f"✅ Successfully user ko <b>{amount}</b> stars bhej diye gaye hain!\nNew Total Stars: <b>{new_stars}</b>", parse_mode="HTML")
+        try:
+            bot.send_message(target_uid, f"🎁 Admin ki taraf se aapke account me <b>+{amount} Stars</b> add kar diye gaye hain! ⭐", parse_mode="HTML")
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error("add_stars_command error: %s", e)
+
 @bot.message_handler(func=lambda message: True)
 def handle_menu_actions(message):
     try:
@@ -348,8 +402,8 @@ def handle_menu_actions(message):
             if stars >= 10:
                 bot.send_message(
                     user_id,
-                    f"🔥 <b>Free Fire Link Unlocked!</b>\n\n"
-                    f"Aapne 10 refers/stars complete kar liye hain! Yeh raha aapka MediaFire link 👇\n"
+                    f"🔥 <b>Free Fire MediaFire Link Unlocked!</b>\n\n"
+                    f"Aapne 10 refers/stars complete kar liye hain! Yeh raha aapka link 👇\n"
                     f"👉 {FREE_FIRE_MEDIAFIRE}",
                     parse_mode="HTML",
                     reply_markup=main_menu_keyboard(),
@@ -359,7 +413,7 @@ def handle_menu_actions(message):
                 bot.send_message(
                     user_id,
                     f"🔥 <b>Free Fire Hack Offer</b>\n\n"
-                    f"Free link lene ke liye total 10 refers (stars) complete karein!\n"
+                    f"MediaFire link lene ke liye total 10 refers (stars) complete karein!\n"
                     f"⭐ Aapke current stars/refers: <b>{stars}/10</b>\n\n"
                     f"💡 Apni referral link se doston ko invite karein!",
                     parse_mode="HTML",
@@ -374,7 +428,7 @@ def handle_menu_actions(message):
                     bot.send_message(
                         user_id,
                         f"🎱 <b>Carrom AimAi v new APK Unlocked!</b>\n\n"
-                        f"Aapne 10 refers complete kar liye hain! File name: <code>{CARROM_FILENAME}</code> (Make sure file is uploaded on GitHub)\n\n"
+                        f"Aapne 10 refers complete kar liye hain! File name: <code>{CARROM_FILENAME}</code>\n\n"
                         f"🔑 Key yahan se generate karein: <b>{FREE_KEY_BOT}</b>",
                         parse_mode="HTML",
                         reply_markup=main_menu_keyboard()
@@ -396,8 +450,7 @@ def handle_menu_actions(message):
                 if not sent:
                     bot.send_message(
                         user_id,
-                        f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\n"
-                        f"Aapne 10 refers complete kar liye hain! File name: <code>{EIGHT_BP_FILENAME}</code> (Make sure file is uploaded on GitHub)",
+                        f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! File name: <code>{EIGHT_BP_FILENAME}</code>",
                         parse_mode="HTML",
                         reply_markup=main_menu_keyboard()
                     )
@@ -442,57 +495,4 @@ def handle_menu_actions(message):
                 user_id,
                 f"👥 <b>Aapka Status & Referrals</b>\n\n"
                 f"👤 Total Referrals: <b>{refs}</b>\n"
-                f"⭐ Total Stars: <b>{current_stars}</b>\n\n"
-                f"🔥 Free Fire Progress: <b>{current_stars}/10</b>\n"
-                f"🎱 Carrom Progress: <b>{current_stars}/10</b>\n"
-                f"🎱 8BP Progress: <b>{current_stars}/10</b>",
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard()
-            )
-
-        elif "Trust Proof" in text:
-            bot.send_message(
-                user_id,
-                "🛡️ <b>Trust Proof Channel</b>\n\n"
-                f"Customer proofs aur successful deals yahan check karein:\n👉 {TRUST_PROOF_LINK}",
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard()
-            )
-
-        elif "Refresh" in text:
-            bot.send_message(
-                user_id,
-                "🔄 <b>Bot Refreshed Successfully!</b>\n\nAapka menu updated aur active hai.",
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard()
-            )
-    except Exception as e:
-        logger.error("handle_menu_actions error: %s", e)
-
-def load_bot_username():
-    try:
-        global BOT_USERNAME
-        me = bot.get_me()
-        if me and me.username:
-            BOT_USERNAME = me.username
-    except Exception as e:
-        logger.error("Could not load bot username: %s", e)
-
-def start_bot():
-    while True:
-        try:
-            bot.remove_webhook()
-            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
-        except Exception as e:
-            logger.error("Polling crashed: %s", e)
-            time.sleep(5)
-
-if __name__ == "__main__":
-    try:
-        threading.Thread(target=run_web_server, daemon=True).start()
-        time.sleep(2)
-        load_bot_username()
-        start_bot()
-    except Exception as e:
-        logger.error("Main execution error: %s", e)
-    
+                f"⭐ Total
