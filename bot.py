@@ -25,10 +25,15 @@ CHANNEL_2_LINK = "https://t.me/Memonxgamingff"
 
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
+FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 TRUST_PROOF_LINK = "https://t.me/proofnovaengine"
 
+FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
+CARROM_FILENAME = "AimAi v new (1).apk"
+EIGHT_BP_FILENAME = "Ninja_Engine_v2.1.1.apk"
+
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v8"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v9"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -151,6 +156,8 @@ def create_user_if_missing(telegram_user, referrer_id=None):
                 "started": True,
                 "created_at": now,
                 "last_seen": now,
+                "created_timestamp": time.time(),
+                "video_sent_24h": False,
                 "unlocked_apps": {},
                 "referral_rewards": {}
             }
@@ -186,7 +193,7 @@ def check_refresh_broadcast(user_id):
             bot.send_message(
                 user_id,
                 "🔄 <b>Bot Refresh Update!</b>\n\n"
-                "Aapka bot successfully refresh aur update ho chuka hai! Naye sections aur features add kar diye gaye hain 🚀",
+                "Aapka bot successfully refresh aur update ho chuka hai! Naye sections, faster speed aur 5-star unlock system ke sath ab aap ise use kar sakte hain 🚀",
                 parse_mode="HTML"
             )
             firebase_patch(f"users/{user_id}", {REFRESH_NOTIFIED_KEY: True})
@@ -245,6 +252,40 @@ def send_local_apk(user_id, filename, caption):
     return False
 
 # =========================================================
+# BACKGROUND WORKER FOR VIDEO (24H FOR NEW / INSTANT FOR OLD)
+# =========================================================
+def background_video_worker():
+    while True:
+        try:
+            time.sleep(60)
+            users = firebase_get("users")
+            if not isinstance(users, dict):
+                continue
+
+            current_time = time.time()
+            for uid, udata in users.items():
+                if not isinstance(udata, dict):
+                    continue
+                if udata.get("video_sent_24h", False):
+                    continue
+
+                created_ts = udata.get("created_timestamp", current_time)
+                # Check if 24 hours (86400 seconds) have passed for new users
+                if (current_time - created_ts) >= 86400:
+                    # Look for any video file in directory or sent via media upload
+                    video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
+                    if video_files:
+                        v_path = video_files[0]
+                        try:
+                            with open(v_path, "rb") as vid:
+                                bot.send_video(int(uid), vid, caption="🎥 <b>Tutorial / Guide Video</b>\nAapke liye special guide video yahan di gayi hai 👇", parse_mode="HTML")
+                            firebase_patch(f"users/{uid}", {"video_sent_24h": True})
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.error("Background video worker error: %s", e)
+
+# =========================================================
 # KEYBOARDS
 # =========================================================
 def main_menu_keyboard():
@@ -252,7 +293,7 @@ def main_menu_keyboard():
     markup.row(types.KeyboardButton("🎱 8 Ball Pool"), types.KeyboardButton("🎱 Carrom Pool"))
     markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("💳 Paid Hack"))
     markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 My Status"))
-    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
+    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🎧 Help & Support"), types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
     return markup
 
 def channels_join_keyboard():
@@ -284,6 +325,14 @@ def get_category_keyboard(cat_key, user_stars, unlocked_dict):
 # =========================================================
 # HANDLERS & VERIFICATION
 # =========================================================
+@bot.message_handler(content_types=['video'])
+def handle_video_upload(message):
+    try:
+        file_id = message.video.file_id
+        bot.reply_to(message, f"🎥 <b>Tutorial Video Saved Successfully!</b>\nFile ID:\n<code>{file_id}</code>", parse_mode="HTML")
+    except Exception as e:
+        logger.error("Video upload error: %s", e)
+
 @bot.message_handler(commands=["start"])
 def start_command(message):
     try:
@@ -367,6 +416,16 @@ def verify_channels_callback(call):
         firebase_patch(f"users/{user_id}", {"verified": True})
         reward_referrer_star(user_id)
 
+        # Send instant welcome/intro video for old or verified users right away
+        video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
+        if video_files:
+            try:
+                with open(video_files[0], "rb") as vid:
+                    bot.send_video(user_id, vid, caption="🎥 <b>Welcome Tutorial Video</b>\nAapke liye guide video yahan di gayi hai 👇", parse_mode="HTML")
+                firebase_patch(f"users/{user_id}", {"video_sent_24h": True})
+            except Exception:
+                pass
+
         bot.send_message(
             user_id,
             "🎉 <b>All Verifications Successful!</b>\n\nAapka account successfully verify ho chuka hai 👇",
@@ -421,7 +480,7 @@ def app_action_callback(call):
                     user_id,
                     f"❌ <b>Insufficient Stars!</b>\n\n"
                     f"⭐ Aapke Stars: <b>{stars}</b>\n"
-                    f"Required Stars: <b>{STARS_REQUIRED_PER_APP}</b>\n\n"
+                    f"Required Stars: <b>{STARS_REQUIRED_PER_APP}</b> (1 App = 5 Stars)\n\n"
                     f"💡 Aur stars earn karne ke liye apni <b>My Link</b> share karke doston ko invite karein (1 Refer = 1 Star)!",
                     parse_mode="HTML"
                 )
@@ -439,75 +498,9 @@ def app_action_callback(call):
                 user_id,
                 f"🎉 <b>Successfully Unlocked {app_info['name']}!</b>\n\n"
                 f"⭐ Remaining Stars: <b>{new_stars}</b>\n\n"
-                f"Ab aap iski APK file download kar sakte hain 👇",
+                f"Ab aap iski APK file niche se download kar sakte hain 👇",
                 parse_mode="HTML"
             )
 
-            if cat_key == "freefire" and fname.lower() == "memon x gaming panel .apk":
-                bot.send_message(user_id, f"🔥 <b>Free Fire Link:</b>\n👉 {FREE_FIRE_MEDIAFIRE}", parse_mode="HTML")
-            else:
-                sent = send_local_apk(user_id, fname, f"📥 <b>{app_info['name']} APK File:</b>")
-                if not sent:
-                    bot.send_message(user_id, f"⚠️ File server par nahi mili (`{fname}`). Owner se contact karein.")
-
-        elif action == "dl":
-            if not unlocked_dict.get(fname, False) and not is_unlimited:
-                bot.send_message(user_id, "🔒 Pehle is app ko unlock karne ke liye <b>Unlock</b> button dabayein!", parse_mode="HTML")
-                return
-
-            if cat_key == "freefire" and fname.lower() == "memon x gaming panel .apk":
-                bot.send_message(user_id, f"🔥 <b>Free Fire Link:</b>\n👉 {FREE_FIRE_MEDIAFIRE}", parse_mode="HTML")
-            else:
-                sent = send_local_apk(user_id, fname, f"📥 <b>{app_info['name']} APK File:</b>")
-                if not sent:
-                    bot.send_message(user_id, f"⚠️ File server par nahi mili (`{fname}`). Owner se contact karein.")
-
-        # Refresh keyboard view
-        updated_user = get_user(user_id)
-        up_stars = 999999 if updated_user.get("unlimited_access", False) else int(updated_user.get("stars", 0))
-        up_unlocked = updated_user.get("unlocked_apps", {})
-        bot.edit_message_reply_markup(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            reply_markup=get_category_keyboard(cat_key, up_stars, up_unlocked)
-        )
-    except Exception as e:
-        logger.error("app_action_callback error: %s", e)
-
-@bot.message_handler(commands=["addstars", "sendstars"])
-def add_stars_command(message):
-    try:
-        user_id = message.from_user.id
-        user = get_user(user_id)
-        if not user or not user.get("unlimited_access", False):
-            bot.reply_to(message, "❌ Aapke pas yeh command use karne ka access nahi hai!")
-            return
-
-        parts = message.text.split()
-        if len(parts) < 3:
-            bot.reply_to(message, "⚠️ Sahi format use karein:\n<code>/addstars @username amount</code> ya <code>/addstars userid amount</code>", parse_mode="HTML")
-            return
-
-        target_query = parts[1]
-        try:
-            amount = int(parts[2])
-        except ValueError:
-            bot.reply_to(message, "❌ Amount ek number honi chahiye!")
-            return
-
-        target_uid = None
-        target_data = None
-
-        if target_query.isdigit():
-            target_uid = int(target_query)
-            target_data = get_user(target_uid)
-        else:
-            target_uid, target_data = find_user_by_username(target_query)
-
-        if not target_data:
-            bot.reply_to(message, "❌ User database me nahi mila!")
-            return
-
-        current_stars = int(target_data.get("stars", 0))
-        new_stars = current_stars + amount
-        firebase_patch(f"users/{target_ui
+            if cat_key == "freefire" and "proxy" in fname.lower():
+                sent = send_local_
