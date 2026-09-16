@@ -25,16 +25,40 @@ CHANNEL_2_LINK = "https://t.me/Memonxgamingff"
 
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
-FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 TRUST_PROOF_LINK = "https://t.me/proofnovaengine"
 
-FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
-CARROM_FILENAME = "AimAi v new (1).apk"
-EIGHT_BP_FILENAME = "Ninja_Engine_v2.1.1.apk"
-
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v7"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v8"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
+STARS_REQUIRED_PER_APP = 5
+
+# APPS MAPPING & CATEGORIES
+GAMES_DATA = {
+    "8bp": {
+        "title": "🎱 8 Ball Pool Hacks",
+        "apps": [
+            {"name": "Ninja Crack", "filename": "Ninja-crack.apk", "desc": "Advanced 8BP Ninja Hack"},
+            {"name": "AK Loader", "filename": "AKLoader-3.8.2-random-(arm32 a...apk", "desc": "AK Loader Tool for 8BP"}
+        ]
+    },
+    "carrom": {
+        "title": "🎱 Carrom Pool Hacks",
+        "apps": [
+            {"name": "Aim AI Pro", "filename": "AimAi-2.apk", "desc": "Carrom Aim AI Guide & Tool"}
+        ]
+    },
+    "freefire": {
+        "title": "🔥 Free Fire Hacks",
+        "apps": [
+            {"name": "HuuDa Proxy", "filename": "HuuDa Proxy V1.0.apk", "desc": "HuuDa Proxy Mod Panel"},
+            {"name": "Krishan X Take Michi", "filename": "KRISHAN X TAKE MICHI_1.0.apk", "desc": "Michi Mod Menu"},
+            {"name": "Laugh Mods", "filename": "LAUGH MODS V4_1.0.apk", "desc": "Laugh Mods Panel v4"},
+            {"name": "M1NX Proxy", "filename": "M1NX PROXY.apk", "desc": "M1NX FF Proxy Tool"},
+            {"name": "RC Beta Proxy", "filename": "RC BETA PROXY V1.apk", "desc": "RC Beta Proxy Panel"},
+            {"name": "S3 Hacks Proxy", "filename": "S3 Hacks Proxy_1.8.apk", "desc": "S3 Hacks Proxy v1.8"}
+        ]
+    }
+}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("premium-bot")
@@ -127,6 +151,7 @@ def create_user_if_missing(telegram_user, referrer_id=None):
                 "started": True,
                 "created_at": now,
                 "last_seen": now,
+                "unlocked_apps": {},
                 "referral_rewards": {}
             }
             firebase_put(f"users/{user_id}", data)
@@ -161,7 +186,7 @@ def check_refresh_broadcast(user_id):
             bot.send_message(
                 user_id,
                 "🔄 <b>Bot Refresh Update!</b>\n\n"
-                "Aapka bot successfully refresh aur update ho chuka hai! Naye features ke sath ab aap ise use kar sakte hain 🚀",
+                "Aapka bot successfully refresh aur update ho chuka hai! Naye sections aur features add kar diye gaye hain 🚀",
                 parse_mode="HTML"
             )
             firebase_patch(f"users/{user_id}", {REFRESH_NOTIFIED_KEY: True})
@@ -224,10 +249,10 @@ def send_local_apk(user_id, filename, caption):
 # =========================================================
 def main_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("🎱 Carrom"))
-    markup.row(types.KeyboardButton("🎱 8BP"), types.KeyboardButton("💳 Paid Hack"))
+    markup.row(types.KeyboardButton("🎱 8 Ball Pool"), types.KeyboardButton("🎱 Carrom Pool"))
+    markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("💳 Paid Hack"))
     markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 My Status"))
-    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🔄 Refresh"))
+    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
     return markup
 
 def channels_join_keyboard():
@@ -235,6 +260,25 @@ def channels_join_keyboard():
     markup.add(types.InlineKeyboardButton("📢 Join Channel 1 (@novaengine01)", url=CHANNEL_1_LINK))
     markup.add(types.InlineKeyboardButton("📢 Join Channel 2 (@Memonxgamingff)", url=CHANNEL_2_LINK))
     markup.add(types.InlineKeyboardButton("✅ Verify Channels Joined", callback_data="verify_channels"))
+    return markup
+
+def get_category_keyboard(cat_key, user_stars, unlocked_dict):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    category = GAMES_DATA.get(cat_key, {})
+    apps = category.get("apps", [])
+    
+    for idx, app in enumerate(apps):
+        fname = app["filename"]
+        is_unlocked = unlocked_dict.get(fname, False)
+        if is_unlocked:
+            text = f"📥 Download {app['name']} (Unlocked ✅)"
+            cb = f"dl:{cat_key}:{idx}"
+        else:
+            text = f"🔓 Unlock {app['name']} (Cost: {STARS_REQUIRED_PER_APP} ⭐)"
+            cb = f"unlock:{cat_key}:{idx}"
+        markup.add(types.InlineKeyboardButton(text, callback_data=cb))
+        
+    markup.add(types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_menu"))
     return markup
 
 # =========================================================
@@ -332,6 +376,104 @@ def verify_channels_callback(call):
     except Exception as e:
         logger.error("verify_channels_callback error: %s", e)
 
+@bot.callback_query_handler(func=lambda call: call.data == "back_menu")
+def back_menu_callback(call):
+    try:
+        user_id = call.from_user.id
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "📌 <b>Main Menu:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
+    except Exception as e:
+        logger.error("back_menu_callback error: %s", e)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("unlock:") or call.data.startswith("dl:"))
+def app_action_callback(call):
+    try:
+        user_id = call.from_user.id
+        data = call.data
+        bot.answer_callback_query(call.id)
+
+        parts = data.split(":")
+        action, cat_key, idx_str = parts[0], parts[1], int(parts[2])
+        
+        user = get_user(user_id)
+        if not user:
+            return
+
+        is_unlimited = user.get("unlimited_access", False)
+        stars = 999999 if is_unlimited else int(user.get("stars", 0))
+        
+        category = GAMES_DATA.get(cat_key, {})
+        apps = category.get("apps", [])
+        if idx_str >= len(apps):
+            return
+            
+        app_info = apps[idx_str]
+        fname = app_info["filename"]
+        unlocked_dict = user.get("unlocked_apps", {})
+
+        if action == "unlock":
+            if unlocked_dict.get(fname, False):
+                bot.send_message(user_id, f"✅ Yeh app pehle se unlocked hai! Niche download button dabayein.")
+                return
+
+            if stars < STARS_REQUIRED_PER_APP:
+                bot.send_message(
+                    user_id,
+                    f"❌ <b>Insufficient Stars!</b>\n\n"
+                    f"⭐ Aapke Stars: <b>{stars}</b>\n"
+                    f"Required Stars: <b>{STARS_REQUIRED_PER_APP}</b>\n\n"
+                    f"💡 Aur stars earn karne ke liye apni <b>My Link</b> share karke doston ko invite karein (1 Refer = 1 Star)!",
+                    parse_mode="HTML"
+                )
+                return
+
+            new_stars = stars - STARS_REQUIRED_PER_APP if not is_unlimited else stars
+            unlocked_dict[fname] = True
+
+            firebase_patch(f"users/{user_id}", {
+                "stars": new_stars,
+                f"unlocked_apps/{fname}": True
+            })
+
+            bot.send_message(
+                user_id,
+                f"🎉 <b>Successfully Unlocked {app_info['name']}!</b>\n\n"
+                f"⭐ Remaining Stars: <b>{new_stars}</b>\n\n"
+                f"Ab aap iski APK file download kar sakte hain 👇",
+                parse_mode="HTML"
+            )
+
+            if cat_key == "freefire" and fname.lower() == "memon x gaming panel .apk":
+                bot.send_message(user_id, f"🔥 <b>Free Fire Link:</b>\n👉 {FREE_FIRE_MEDIAFIRE}", parse_mode="HTML")
+            else:
+                sent = send_local_apk(user_id, fname, f"📥 <b>{app_info['name']} APK File:</b>")
+                if not sent:
+                    bot.send_message(user_id, f"⚠️ File server par nahi mili (`{fname}`). Owner se contact karein.")
+
+        elif action == "dl":
+            if not unlocked_dict.get(fname, False) and not is_unlimited:
+                bot.send_message(user_id, "🔒 Pehle is app ko unlock karne ke liye <b>Unlock</b> button dabayein!", parse_mode="HTML")
+                return
+
+            if cat_key == "freefire" and fname.lower() == "memon x gaming panel .apk":
+                bot.send_message(user_id, f"🔥 <b>Free Fire Link:</b>\n👉 {FREE_FIRE_MEDIAFIRE}", parse_mode="HTML")
+            else:
+                sent = send_local_apk(user_id, fname, f"📥 <b>{app_info['name']} APK File:</b>")
+                if not sent:
+                    bot.send_message(user_id, f"⚠️ File server par nahi mili (`{fname}`). Owner se contact karein.")
+
+        # Refresh keyboard view
+        updated_user = get_user(user_id)
+        up_stars = 999999 if updated_user.get("unlimited_access", False) else int(updated_user.get("stars", 0))
+        up_unlocked = updated_user.get("unlocked_apps", {})
+        bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            reply_markup=get_category_keyboard(cat_key, up_stars, up_unlocked)
+        )
+    except Exception as e:
+        logger.error("app_action_callback error: %s", e)
+
 @bot.message_handler(commands=["addstars", "sendstars"])
 def add_stars_command(message):
     try:
@@ -368,131 +510,4 @@ def add_stars_command(message):
 
         current_stars = int(target_data.get("stars", 0))
         new_stars = current_stars + amount
-        firebase_patch(f"users/{target_uid}", {"stars": new_stars})
-
-        bot.reply_to(message, f"✅ Successfully user ko <b>{amount}</b> stars bhej diye gaye hain!\nNew Total Stars: <b>{new_stars}</b>", parse_mode="HTML")
-        try:
-            bot.send_message(target_uid, f"🎁 Admin ki taraf se aapke account me <b>+{amount} Stars</b> add kar diye gaye hain! ⭐", parse_mode="HTML")
-        except Exception:
-            pass
-    except Exception as e:
-        logger.error("add_stars_command error: %s", e)
-
-@bot.message_handler(func=lambda message: True)
-def handle_menu_actions(message):
-    try:
-        user_id = message.from_user.id
-        text = (message.text or "").strip()
-        user = create_user_if_missing(message.from_user)
-        check_refresh_broadcast(user_id)
-
-        if text == SECRET_ADMIN_COMMAND:
-            firebase_patch(f"users/{user_id}", {"unlimited_access": True, "stars": 999999, "referrals": 999999})
-            bot.send_message(user_id, "👑 <b>Admin Unlimited Stars & Access Activated!</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
-            return
-
-        if not user.get("verified", False) or not check_joined_both(user_id):
-            bot.send_message(user_id, "⚠️ Pehle verification aur channel join complete karein! Type /start", reply_markup=types.ReplyKeyboardRemove())
-            return
-
-        is_unlimited = user.get("unlimited_access", False)
-        stars = 999999 if is_unlimited else int(user.get("stars", 0))
-
-        if "Free Fire" in text:
-            if stars >= 10:
-                bot.send_message(
-                    user_id,
-                    f"🔥 <b>Free Fire MediaFire Link Unlocked!</b>\n\n"
-                    f"Aapne 10 refers/stars complete kar liye hain! Yeh raha aapka link 👇\n"
-                    f"👉 {FREE_FIRE_MEDIAFIRE}",
-                    parse_mode="HTML",
-                    reply_markup=main_menu_keyboard(),
-                    disable_web_page_preview=True
-                )
-            else:
-                bot.send_message(
-                    user_id,
-                    f"🔥 <b>Free Fire Hack Offer</b>\n\n"
-                    f"MediaFire link lene ke liye total 10 refers (stars) complete karein!\n"
-                    f"⭐ Aapke current stars/refers: <b>{stars}/10</b>\n\n"
-                    f"💡 Apni referral link se doston ko invite karein!",
-                    parse_mode="HTML",
-                    reply_markup=main_menu_keyboard()
-                )
-
-        elif "Carrom" in text:
-            if stars >= 10:
-                sent = send_local_apk(user_id, CARROM_FILENAME, "🎱 <b>Carrom AimAi v new APK File Unlocked!</b>\nAapne 10 refers complete kar liye hain! Yeh rahi aapki APK file 👇")
-                bot.send_message(user_id, f"🔑 <b>Key yahan se generate karein:</b> {FREE_KEY_BOT}", parse_mode="HTML")
-                if not sent:
-                    bot.send_message(
-                        user_id,
-                        f"🎱 <b>Carrom AimAi v new APK Unlocked!</b>\n\n"
-                        f"Aapne 10 refers complete kar liye hain! File name: <code>{CARROM_FILENAME}</code>\n\n"
-                        f"🔑 Key yahan se generate karein: <b>{FREE_KEY_BOT}</b>",
-                        parse_mode="HTML",
-                        reply_markup=main_menu_keyboard()
-                    )
-            else:
-                bot.send_message(
-                    user_id,
-                    f"🎱 <b>Carrom Hack Offer</b>\n\n"
-                    f"Free me lene ke liye total 10 refers complete karein!\n"
-                    f"⭐ Aapke current stars: <b>{stars}/10</b>\n\n"
-                    f"💡 Key yahan se generate karein (refer complete hone ke baad): <b>{FREE_KEY_BOT}</b>",
-                    parse_mode="HTML",
-                    reply_markup=main_menu_keyboard()
-                )
-
-        elif "8BP" in text:
-            if stars >= 10:
-                sent = send_local_apk(user_id, EIGHT_BP_FILENAME, "🎱 <b>8BP - ninja_Engine_v.1.1 APK File Unlocked!</b>\nAapne 10 refers successfully complete kar liye hain! Yeh rahi aapki APK file 👇")
-                if not sent:
-                    bot.send_message(
-                        user_id,
-                        f"🎱 <b>8BP - ninja_Engine_v.1.1 Unlocked!</b>\n\nAapne 10 refers complete kar liye hain! File name: <code>{EIGHT_BP_FILENAME}</code>",
-                        parse_mode="HTML",
-                        reply_markup=main_menu_keyboard()
-                    )
-            else:
-                bot.send_message(
-                    user_id,
-                    f"🎱 <b>8BP Hack Offer</b>\n\n"
-                    f"Free me lene ke liye total 10 refers complete karein!\n"
-                    f"⭐ Aapke current stars: <b>{stars}/10</b>\n\n"
-                    f"💡 Apni referral link se doston ko invite karein!",
-                    parse_mode="HTML",
-                    reply_markup=main_menu_keyboard()
-                )
-
-        elif "Paid Hack" in text:
-            bot.send_message(
-                user_id,
-                "💳 <b>PAID HACK DIRECT PURCHASE</b> 👑\n\n"
-                "Aap direct paid hack kharidne ke liye owner se direct contact kar sakte hain:\n"
-                f"• Telegram Owner: <b>{OWNER_CONTACT}</b>\n"
-                f"• WhatsApp: <b>{WHATSAPP_NUMBER}</b>",
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard()
-            )
-
-        elif "My Link" in text:
-            link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
-            bot.send_message(
-                user_id,
-                f"🔗 <b>Aapki Personal Referral Link:</b>\n\n"
-                f"<code>{link}</code>\n\n"
-                f"👥 Is link ko share karein!\n"
-                f"Har ek naye user ke join karne par aapko milega <b>+1 Star</b> ⭐",
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard()
-            )
-
-        elif "My Status" in text:
-            current_stars = 999999 if user.get("unlimited_access", False) else int(user.get("stars", 0))
-            refs = user.get("referrals", 0)
-            bot.send_message(
-                user_id,
-                f"👥 <b>Aapka Status & Referrals</b>\n\n"
-                f"👤 Total Referrals: <b>{refs}</b>\n"
-                f"⭐ Total
+        firebase_patch(f"users/{target_ui
