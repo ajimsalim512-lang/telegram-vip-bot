@@ -11,17 +11,24 @@ import telebot
 from telebot import types
 from flask import Flask, jsonify
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8803139822:AAGOzEAyDvgqmq0Gh42Zz0bsvZ-29oEKy5o")
-FIREBASE_AUTH = os.getenv("FIREBASE_AUTH", "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL")
-FIREBASE_URL = os.getenv("FIREBASE_URL", "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app").rstrip("/")
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+BOT_TOKEN = "8803139822:AAGOzEAyDvgqmq0Gh42Zz0bsvZ-29oEKy5o"
+FIREBASE_AUTH = "V677nUiq24iMv58OcV02CXyE7iHFqFbke4VVPdmL"
+FIREBASE_URL = "https://aimai-817ef-default-rtdb.asia-southeast1.firebasedatabase.app".rstrip("/")
 
 CHANNEL_1_USERNAME = "@novaengine01"
 CHANNEL_1_LINK = "https://t.me/novaengine01"
+
 CHANNEL_2_USERNAME = "@Memonxgamingff"
 CHANNEL_2_LINK = "https://t.me/Memonxgamingff"
 
 OWNER_CONTACT = "@Memonsalim"
 WHATSAPP_NUMBER = "+91 6354525228"
+
 FREE_KEY_BOT = "@Arsenal_xex_freekeybot"
 TRUST_PROOF_LINK = "https://t.me/proofnovaengine"
 
@@ -29,461 +36,836 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v15"
-VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
-STARS_REQUIRED_PER_APP = 5
 
-GAMES_DATA = {
-    "8bp": {
-        "title": "🎱 8 Ball Pool Hacks",
-        "apps": [
-            {"name": "Ninja Crack", "filename": "Ninja-crack.apk", "desc": "Advanced 8BP Ninja Hack"},
-            {"name": "AK Loader", "filename": "AKLoader-3.8.2-random-(arm32 a...apk", "desc": "AK Loader Tool for 8BP"}
-        ]
-    },
-    "carrom": {
-        "title": "🎱 Carrom Pool Hacks",
-        "apps": [
-            {"name": "Aim AI Pro", "filename": "AimAi-2.apk", "desc": "Carrom Aim AI Guide & Tool"}
-        ]
-    },
-    "freefire": {
-        "title": "🔥 Free Fire Hacks",
-        "apps": [
-            {"name": "HuuDa Proxy", "filename": "HuuDa Proxy V1.0.apk", "desc": "HuuDa Proxy Mod Panel"},
-            {"name": "Krishan X Take Michi", "filename": "KRISHAN X TAKE MICHI_1.0.apk", "desc": "Michi Mod Menu"},
-            {"name": "Laugh Mods", "filename": "LAUGH MODS V4_1.0.apk", "desc": "Laugh Mods Panel v4"},
-            {"name": "M1NX Proxy", "filename": "M1NX PROXY.apk", "desc": "M1NX FF Proxy Tool"},
-            {"name": "RC Beta Proxy", "filename": "RC BETA PROXY V1.apk", "desc": "RC Beta Proxy Panel"},
-            {"name": "S3 Hacks Proxy", "filename": "S3 Hacks Proxy_1.8.apk", "desc": "S3 Hacks Proxy v1.8"}
-        ]
-    }
-}
+STARS_REQUIRED = 10
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
-logger = logging.getLogger("premium-bot")
+VERIFICATION_EMOJIS = [
+    "🍎",
+    "🚗",
+    "⭐",
+    "⚽",
+    "🐱"
+]
 
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+REFRESH_KEY = "refresh_notified_v2"
+
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+logger = logging.getLogger("apk-distribution-bot")
+
+
+# ============================================================
+# TELEGRAM
+# ============================================================
+
+bot = telebot.TeleBot(
+    BOT_TOKEN,
+    parse_mode="HTML",
+    threaded=True
+)
+
 BOT_USERNAME = ""
 
-app = Flask(__name__)
 
-@app.route("/")
+# ============================================================
+# FLASK / RENDER
+# ============================================================
+
+flask_app = Flask(__name__)
+
+
+@flask_app.route("/")
 def home():
-    return "Bot is running smoothly."
+    return "Telegram bot is running."
 
-@app.route("/health")
+
+@flask_app.route("/health")
 def health():
-    return jsonify({"status": "ok", "bot": "running", "time": datetime.now(timezone.utc).isoformat()})
+    return jsonify({
+        "status": "ok",
+        "bot": "running",
+        "time": datetime.now(timezone.utc).isoformat()
+    })
 
-@app.route("/ping")
+
+@flask_app.route("/ping")
 def ping():
     return "pong"
+
 
 def run_web_server():
     try:
         port = int(os.getenv("PORT", "10000"))
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    except Exception as e:
-        logger.error("Flask server error: %s", e)
+
+        flask_app.run(
+            host="0.0.0.0",
+            port=port,
+            debug=False,
+            use_reloader=False
+        )
+
+    except Exception as exc:
+        logger.exception("Flask error: %s", exc)
+
+
+# ============================================================
+# FIREBASE
+# ============================================================
 
 def firebase_url(path=""):
-    path = path.strip("/")
-    url = f"{FIREBASE_URL}/{path}.json" if path else f"{FIREBASE_URL}/.json"
-    return f"{url}?auth={FIREBASE_AUTH}"
+    path = str(path).strip("/")
+
+    if path:
+        base = f"{FIREBASE_URL}/{path}.json"
+    else:
+        base = f"{FIREBASE_URL}/.json"
+
+    separator = "&" if "?" in base else "?"
+
+    return f"{base}{separator}auth={FIREBASE_AUTH}"
+
 
 def firebase_get(path=""):
     try:
-        response = requests.get(firebase_url(path), timeout=10)
-        return response.json() if response.status_code == 200 else None
-    except Exception:
+        response = requests.get(
+            firebase_url(path),
+            timeout=15
+        )
+
+        if response.status_code != 200:
+            logger.warning(
+                "Firebase GET failed: %s",
+                response.status_code
+            )
+            return None
+
+        return response.json()
+
+    except Exception as exc:
+        logger.error("Firebase GET error: %s", exc)
         return None
+
 
 def firebase_put(path, data):
     try:
-        response = requests.put(firebase_url(path), json=data, timeout=10)
+        response = requests.put(
+            firebase_url(path),
+            json=data,
+            timeout=15
+        )
+
         return response.status_code in (200, 201)
-    except Exception:
+
+    except Exception as exc:
+        logger.error("Firebase PUT error: %s", exc)
         return False
+
 
 def firebase_patch(path, data):
     try:
-        response = requests.patch(firebase_url(path), json=data, timeout=10)
+        response = requests.patch(
+            firebase_url(path),
+            json=data,
+            timeout=15
+        )
+
         return response.status_code in (200, 201)
-    except Exception:
+
+    except Exception as exc:
+        logger.error("Firebase PATCH error: %s", exc)
         return False
+
+
+# ============================================================
+# USER DATABASE
+# ============================================================
 
 def get_user(user_id):
-    data = firebase_get("users/" + str(user_id))
-    return data if isinstance(data, dict) else None
-
-def find_user_by_username(username):
-    username = username.lstrip("@").lower()
-    users = firebase_get("users")
-    if isinstance(users, dict):
-        for uid, udata in users.items():
-            if isinstance(udata, dict) and str(udata.get("username", "")).lower() == username:
-                return int(uid), udata
-    return None, None
-
-def create_user_if_missing(telegram_user, referrer_id=None):
     try:
-        user_id = telegram_user.id
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        old = get_user(user_id)
+        data = firebase_get(f"users/{int(user_id)}")
 
-        if old is None:
-            ref = int(referrer_id) if referrer_id and int(referrer_id) != user_id else None
-            data = {
-                "id": user_id,
-                "username": telegram_user.username or "",
-                "first_name": telegram_user.first_name or "",
-                "stars": 0,
-                "referrals": 0,
-                "referrer_id": ref,
-                "unlimited_access": False,
-                "verified": False,
-                "verification_step": "emoji",
-                "target_emoji": "",
-                "started": True,
-                "created_at": now,
-                "last_seen": now,
-                "created_timestamp": time.time(),
-                "video_sent_24h": False,
-                "unlocked_apps": {},
-                "referral_rewards": {}
-            }
-            firebase_put("users/" + str(user_id), data)
+        if isinstance(data, dict):
             return data
 
-        patch = {"username": telegram_user.username or "", "first_name": telegram_user.first_name or "", "last_seen": now, "started": True}
-        if referrer_id and int(referrer_id) != user_id and not old.get("referrer_id"):
-            patch["referrer_id"] = int(referrer_id)
+    except Exception as exc:
+        logger.error("get_user error: %s", exc)
 
-        firebase_patch("users/" + str(user_id), patch)
-        old.update(patch)
-        return old
-    except Exception as e:
-        logger.error("create_user_if_missing error: %s", e)
-        return None
+    return None
 
-def check_joined_both(user_id):
+
+def create_user(user_obj, referrer_id=None):
     try:
-        m1 = bot.get_chat_member(CHANNEL_1_USERNAME, int(user_id))
-        m2 = bot.get_chat_member(CHANNEL_2_USERNAME, int(user_id))
-        ok1 = m1.status in ("member", "administrator", "creator")
-        ok2 = m2.status in ("member", "administrator", "creator")
-        return ok1 and ok2
-    except Exception:
-        return False
+        user_id = int(user_obj.id)
+        existing = get_user(user_id)
 
-def check_refresh_broadcast(user_id):
-    try:
-        user = get_user(user_id)
-        if user and not user.get(REFRESH_NOTIFIED_KEY, False):
-            bot.send_message(
-                user_id,
-                "🔄 <b>Bot Refresh Update!</b>\n\nAapka bot successfully refresh aur update ho chuka hai! Naye sections, faster speed aur 5-star unlock system ke sath ab aap ise use kar sakte hain 🚀",
-                parse_mode="HTML"
+        now = time.time()
+
+        if existing is not None:
+            patch = {
+                "username": user_obj.username or "",
+                "first_name": user_obj.first_name or "",
+                "last_seen": now
+            }
+
+            if (
+                referrer_id
+                and not existing.get("referrer_id")
+                and int(referrer_id) != user_id
+            ):
+                patch["referrer_id"] = int(referrer_id)
+
+            firebase_patch(
+                f"users/{user_id}",
+                patch
             )
-            firebase_patch("users/" + str(user_id), {REFRESH_NOTIFIED_KEY: True})
-    except Exception:
-        pass
 
-def reward_referrer_star(referred_id):
+            existing.update(patch)
+            return existing
+
+        valid_referrer = None
+
+        try:
+            if referrer_id:
+                ref = int(referrer_id)
+
+                if ref != user_id:
+                    valid_referrer = ref
+
+        except (ValueError, TypeError):
+            valid_referrer = None
+
+        data = {
+            "id": user_id,
+            "username": user_obj.username or "",
+            "first_name": user_obj.first_name or "",
+            "stars": 0,
+            "referrals": 0,
+            "referrer_id": valid_referrer,
+            "unlimited_access": False,
+            "verified": False,
+            "verification_step": "emoji",
+            "target_emoji": "",
+            "created_at": now,
+            "created_timestamp": now,
+            "last_seen": now,
+            "video_sent": False,
+            "unlocked_sections": {}
+        }
+
+        if firebase_put(
+            f"users/{user_id}",
+            data
+        ):
+            return data
+
+    except Exception as exc:
+        logger.error("create_user error: %s", exc)
+
+    return None
+
+
+# ============================================================
+# REFERRALS
+# ============================================================
+
+def reward_referrer(referred_id):
     try:
         referred = get_user(referred_id)
+
         if not referred:
             return
+
         referrer_id = referred.get("referrer_id")
-        if not referrer_id or int(referrer_id) == int(referred_id):
+
+        if not referrer_id:
             return
+
+        referrer_id = int(referrer_id)
+
+        if referrer_id == int(referred_id):
+            return
+
         referrer = get_user(referrer_id)
+
         if not referrer:
             return
 
-        rewards = referrer.get("referral_rewards", {})
-        if str(referred_id) in rewards:
+        rewarded = referrer.get("referral_rewards", {})
+
+        if not isinstance(rewarded, dict):
+            rewarded = {}
+
+        key = str(referred_id)
+
+        if key in rewarded:
             return
 
-        current_stars = int(referrer.get("stars", 0))
-        current_refs = int(referrer.get("referrals", 0))
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        stars = int(referrer.get("stars", 0))
+        referrals = int(referrer.get("referrals", 0))
 
-        firebase_patch("users/" + str(referrer_id), {
-            "stars": current_stars + 1,
-            "referrals": current_refs + 1,
-            "referral_rewards/" + str(referred_id): {"rewarded_at": now}
-        })
+        update = {
+            "stars": stars + 1,
+            "referrals": referrals + 1,
+            f"referral_rewards/{key}": {
+                "rewarded_at": time.time()
+            }
+        }
 
-        try:
-            bot.send_message(
-                int(referrer_id),
-                "🎉 <b>New Referral Joined!</b>\n\nAapki link se ek naye user ne join kar liya hai!\n⭐ Aapko <b>+1 Star</b> mil gaya hai! 🚀",
-                parse_mode="HTML"
+        if firebase_patch(
+            f"users/{referrer_id}",
+            update
+        ):
+            try:
+                bot.send_message(
+                    referrer_id,
+                    (
+                        "🎉 <b>New Referral!</b>\n\n"
+                        "Aapko referral ke liye "
+                        "<b>+1 ⭐ Star</b> mila hai.\n\n"
+                        f"⭐ Total Stars: <b>{stars + 1}</b>"
+                    )
+                )
+
+            except Exception as exc:
+                logger.warning(
+                    "Referral notification failed: %s",
+                    exc
+                )
+
+    except Exception as exc:
+        logger.error("reward_referrer error: %s", exc)
+
+
+# ============================================================
+# CHANNEL VERIFICATION
+# ============================================================
+
+def is_member(user_id, channel):
+    try:
+        member = bot.get_chat_member(
+            channel,
+            int(user_id)
+        )
+
+        return member.status in (
+            "member",
+            "administrator",
+            "creator"
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "Channel check failed %s: %s",
+            channel,
+            exc
+        )
+
+        return False
+
+
+def joined_both_channels(user_id):
+    return (
+        is_member(user_id, CHANNEL_1_USERNAME)
+        and is_member(user_id, CHANNEL_2_USERNAME)
+    )
+
+
+# ============================================================
+# KEYBOARDS
+# ============================================================
+
+def main_keyboard():
+    keyboard = types.ReplyKeyboardMarkup(
+        resize_keyboard=True
+    )
+
+    keyboard.row(
+        "🔥 Free Fire",
+        "🎱 Carrom Pool"
+    )
+
+    keyboard.row(
+        "🎱 8 Ball Pool",
+        "💳 Paid Hack"
+    )
+
+    keyboard.row(
+        "🔗 My Link",
+        "👥 My Status"
+    )
+
+    keyboard.row(
+        "🛡️ Trust Proof",
+        "🎧 Help & Support"
+    )
+
+    keyboard.row(
+        "🔄 Refresh",
+        "ℹ️ How it works"
+    )
+
+    return keyboard
+
+
+def join_keyboard():
+    keyboard = types.InlineKeyboardMarkup()
+
+    keyboard.add(
+        types.InlineKeyboardButton(
+            "📢 Join Channel 1",
+            url=CHANNEL_1_LINK
+        )
+    )
+
+    keyboard.add(
+        types.InlineKeyboardButton(
+            "📢 Join Channel 2",
+            url=CHANNEL_2_LINK
+        )
+    )
+
+    keyboard.add(
+        types.InlineKeyboardButton(
+            "✅ Verify",
+            callback_data="verify_channels"
+        )
+    )
+
+    return keyboard
+
+
+# ============================================================
+# ACCESS CHECK
+# ============================================================
+
+def verified_user(user_id):
+    user = get_user(user_id)
+
+    if not user:
+        return False
+
+    if not user.get("verified", False):
+        return False
+
+    return joined_both_channels(user_id)
+
+
+# ============================================================
+# EMOJI VERIFICATION
+# ============================================================
+
+def send_emoji_verification(user_id):
+    try:
+        target = random.choice(
+            VERIFICATION_EMOJIS
+        )
+
+        firebase_patch(
+            f"users/{user_id}",
+            {
+                "verification_step": "emoji",
+                "target_emoji": target
+            }
+        )
+
+        buttons = [
+            types.InlineKeyboardButton(
+                emoji,
+                callback_data=f"emoji:{emoji}"
             )
-        except Exception:
-            pass
-    except Exception as e:
-        logger.error("reward_referrer_star error: %s", e)
+            for emoji in VERIFICATION_EMOJIS
+        ]
 
-def send_local_apk(user_id, filename, caption):
-    try:
-        if os.path.exists(filename):
-            with open(filename, "rb") as doc:
-                bot.send_document(user_id, doc, caption=caption, parse_mode="HTML")
-            return True
-        else:
-            logger.error("File not found on server: %s", filename)
-    except Exception as e:
-        logger.error("Send local apk error: %s", e)
-    return False
-
-def background_video_worker():
-    while True:
-        try:
-            time.sleep(60)
-            users = firebase_get("users")
-            if not isinstance(users, dict):
-                continue
-
-            current_time = time.time()
-            for uid, udata in users.items():
-                if not isinstance(udata, dict) or udata.get("video_sent_24h", False):
-                    continue
-                created_ts = udata.get("created_timestamp", current_time)
-                if (current_time - created_ts) >= 86400:
-                    video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
-                    if video_files:
-                        try:
-                            with open(video_files[0], "rb") as vid:
-                                bot.send_video(int(uid), vid, caption="🎥 <b>Tutorial / Guide Video</b>\nAapke liye special guide video yahan di gayi hai 👇", parse_mode="HTML")
-                            firebase_patch("users/" + str(uid), {"video_sent_24h": True})
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-
-def main_menu_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row(types.KeyboardButton("🎱 8 Ball Pool"), types.KeyboardButton("🎱 Carrom Pool"))
-    markup.row(types.KeyboardButton("🔥 Free Fire"), types.KeyboardButton("💳 Paid Hack"))
-    markup.row(types.KeyboardButton("🔗 My Link"), types.KeyboardButton("👥 My Status"))
-    markup.row(types.KeyboardButton("🛡️ Trust Proof"), types.KeyboardButton("🎧 Help & Support"), types.KeyboardButton("🔄 Refresh"), types.KeyboardButton("ℹ️ How it works"))
-    return markup
-
-def channels_join_keyboard():
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📢 Join Channel 1 (@novaengine01)", url=CHANNEL_1_LINK))
-    markup.add(types.InlineKeyboardButton("📢 Join Channel 2 (@Memonxgamingff)", url=CHANNEL_2_LINK))
-    markup.add(types.InlineKeyboardButton("✅ Verify Channels Joined", callback_data="verify_channels"))
-    return markup
-
-def get_category_keyboard(cat_key, user_stars, unlocked_dict):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    category = GAMES_DATA.get(cat_key, {})
-    apps = category.get("apps", [])
-    
-    for idx, app in enumerate(apps):
-        fname = app["filename"]
-        is_unlocked = unlocked_dict.get(fname, False)
-        if is_unlocked:
-            text = "📥 Download " + app['name'] + " (Unlocked ✅)"
-            cb = "dl:" + cat_key + ":" + str(idx)
-        else:
-            text = "🔓 Unlock " + app['name'] + " (Cost: 5 ⭐)"
-            cb = "unlock:" + cat_key + ":" + str(idx)
-        markup.add(types.InlineKeyboardButton(text, callback_data=cb))
-        
-    markup.add(types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_menu"))
-    return markup
-
-@bot.message_handler(content_types=['video'])
-def handle_video_upload(message):
-    try:
-        file_id = message.video.file_id
-        bot.reply_to(message, "🎥 <b>Tutorial Video Saved Successfully!</b>\nFile ID:\n<code>" + file_id + "</code>", parse_mode="HTML")
-    except Exception as e:
-        logger.error("Video upload error: %s", e)
-
-@bot.message_handler(commands=["start"])
-def start_command(message):
-    try:
-        user_id = message.from_user.id
-        args = message.text.split()
-        referrer_id = args[1] if len(args) > 1 and args[1].isdigit() else None
-
-        user = create_user_if_missing(message.from_user, referrer_id)
-        check_refresh_broadcast(user_id)
-
-        if user.get("verified", False) and check_joined_both(user_id):
-            reward_referrer_star(user_id)
-            bot.send_message(user_id, "🎉 <b>Welcome back! Aapka menu ready hai:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
-            return
-
-        target = random.choice(VERIFICATION_EMOJIS)
-        firebase_patch("users/" + str(user_id), {"verification_step": "emoji", "target_emoji": target})
-
-        markup = types.InlineKeyboardMarkup(row_width=5)
-        buttons = [types.InlineKeyboardButton(e, callback_data="emoji:" + e) for e in VERIFICATION_EMOJIS]
         random.shuffle(buttons)
-        markup.add(*buttons)
+
+        keyboard = types.InlineKeyboardMarkup(
+            row_width=5
+        )
+
+        keyboard.add(*buttons)
 
         bot.send_message(
             user_id,
-            "🤖 <b>Human Verification Required</b>\n\nPlease niche diye gaye emojis me se <b>" + target + "</b> emoji par click karein taaki prove ho sake aap human hain:",
-            parse_mode="HTML",
-            reply_markup=markup
+            (
+                "🤖 <b>Human Verification</b>\n\n"
+                f"👇 <b>{target}</b> emoji select karein."
+            ),
+            reply_markup=keyboard
         )
-    except Exception as e:
-        logger.error("start_command error: %s", e)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("emoji:"))
-def emoji_verify_callback(call):
+    except Exception as exc:
+        logger.error(
+            "send_emoji_verification error: %s",
+            exc
+        )
+
+
+# ============================================================
+# START
+# ============================================================
+
+@bot.message_handler(commands=["start"])
+def start_handler(message):
+    try:
+        user_id = message.from_user.id
+
+        parts = message.text.split()
+
+        referrer_id = None
+
+        if len(parts) > 1:
+            candidate = parts[1]
+
+            if candidate.isdigit():
+                referrer_id = int(candidate)
+
+        user = create_user(
+            message.from_user,
+            referrer_id
+        )
+
+        if not user:
+            bot.send_message(
+                user_id,
+                "⚠️ Database error. Please try again later."
+            )
+            return
+
+        if (
+            user.get("verified", False)
+            and joined_both_channels(user_id)
+        ):
+            reward_referrer(user_id)
+
+            bot.send_message(
+                user_id,
+                "🎉 <b>Welcome back!</b>\n\n"
+                "Aapka main menu ready hai.",
+                reply_markup=main_keyboard()
+            )
+
+            return
+
+        send_emoji_verification(user_id)
+
+    except Exception as exc:
+        logger.exception(
+            "start_handler error: %s",
+            exc
+        )
+
+
+# ============================================================
+# EMOJI CALLBACK
+# ============================================================
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("emoji:")
+)
+def emoji_callback(call):
     try:
         user_id = call.from_user.id
-        _, clicked = call.data.split(":", 1)
+        selected = call.data.split(":", 1)[1]
+
         bot.answer_callback_query(call.id)
 
         user = get_user(user_id)
+
         if not user:
             return
 
         target = user.get("target_emoji", "")
-        if clicked != target:
-            bot.send_message(user_id, "❌ <b>Wrong Emoji!</b> Sahi emoji select karein: " + target, parse_mode="HTML")
+
+        if selected != target:
+            bot.answer_callback_query(
+                call.id,
+                "❌ Wrong emoji!",
+                show_alert=True
+            )
             return
 
-        firebase_patch("users/" + str(user_id), {"verification_step": "channels"})
+        firebase_patch(
+            f"users/{user_id}",
+            {
+                "verification_step": "channels",
+                "target_emoji": ""
+            }
+        )
 
         bot.send_message(
             user_id,
-            "✅ <b>Human Verification Passed!</b>\n\n⚠️ Ab bot ko use karne ke liye hamare <b>dono channels join karna compulsory hai</b>:\n\n1️⃣ <a href='" + CHANNEL_1_LINK + "'>Channel 1 (@novaengine01)</a>\n2️⃣ <a href='" + CHANNEL_2_LINK + "'>Channel 2 (@Memonxgamingff)</a>\n\n👇 Dono join karne ke baad niche button dabayein:",
-            parse_mode="HTML",
-            reply_markup=channels_join_keyboard(),
-            disable_web_page_preview=True
+            (
+                "✅ <b>Human Verification Passed!</b>\n\n"
+                "Ab dono official channels join karein "
+                "aur phir <b>Verify</b> dabayein."
+            ),
+            reply_markup=join_keyboard()
         )
-    except Exception as e:
-        logger.error("emoji_verify_callback error: %s", e)
 
-@bot.callback_query_handler(func=lambda call: call.data == "verify_channels")
+    except Exception as exc:
+        logger.error(
+            "emoji_callback error: %s",
+            exc
+        )
+
+
+# ============================================================
+# CHANNEL CALLBACK
+# ============================================================
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "verify_channels"
+)
 def verify_channels_callback(call):
     try:
         user_id = call.from_user.id
+
         bot.answer_callback_query(call.id)
 
-        if not check_joined_both(user_id):
+        if not joined_both_channels(user_id):
             bot.send_message(
                 user_id,
-                "❌ <b>Verification Failed!</b>\n\nAapne abhi tak dono channels join nahi kiye hain! Pehle dono join karein phir verify dabayein.",
-                parse_mode="HTML",
-                reply_markup=channels_join_keyboard()
+                (
+                    "❌ <b>Verification Failed</b>\n\n"
+                    "Dono channels join karne ke baad "
+                    "dobara Verify dabayein."
+                ),
+                reply_markup=join_keyboard()
             )
+
             return
 
-        firebase_patch("users/" + str(user_id), {"verified": True})
-        reward_referrer_star(user_id)
+        firebase_patch(
+            f"users/{user_id}",
+            {
+                "verified": True,
+                "verification_step": "complete"
+            }
+        )
 
-        video_files = [f for f in os.listdir(".") if f.endswith((".mp4", ".MOV", ".MKV", ".avi"))]
-        if video_files:
-            try:
-                with open(video_files[0], "rb") as vid:
-                    bot.send_video(user_id, vid, caption="🎥 <b>Welcome Tutorial Video</b>\nAapke liye guide video yahan di gayi hai 👇", parse_mode="HTML")
-                firebase_patch("users/" + str(user_id), {"video_sent_24h": True})
-            except Exception:
-                pass
+        reward_referrer(user_id)
 
         bot.send_message(
             user_id,
-            "🎉 <b>All Verifications Successful!</b>\n\nAapka account successfully verify ho chuka hai 👇",
-            parse_mode="HTML",
-            reply_markup=main_menu_keyboard()
+            (
+                "🎉 <b>Verification Complete!</b>\n\n"
+                "Ab aap main menu use kar sakte hain."
+            ),
+            reply_markup=main_keyboard()
         )
-    except Exception as e:
-        logger.error("verify_channels_callback error: %s", e)
 
-@bot.callback_query_handler(func=lambda call: call.data == "back_menu")
-def back_menu_callback(call):
+    except Exception as exc:
+        logger.error(
+            "verify_channels_callback error: %s",
+            exc
+        )
+
+
+# ============================================================
+# REFERRAL LINK
+# ============================================================
+
+def get_bot_username():
+    global BOT_USERNAME
+
+    if BOT_USERNAME:
+        return BOT_USERNAME
+
     try:
-        user_id = call.from_user.id
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "📌 <b>Main Menu:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
-    except Exception as e:
-        logger.error("back_menu_callback error: %s", e)
+        info = bot.get_me()
+        BOT_USERNAME = info.username or ""
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("unlock:") or call.data.startswith("dl:"))
-def app_action_callback(call):
+    except Exception as exc:
+        logger.error(
+            "get_bot_username error: %s",
+            exc
+        )
+
+    return BOT_USERNAME
+
+
+# ============================================================
+# SECTION UNLOCK
+# ============================================================
+
+def unlock_section(user_id, section):
     try:
-        user_id = call.from_user.id
-        data = call.data
-        bot.answer_callback_query(call.id)
-
-        parts = data.split(":")
-        action, cat_key, idx_str = parts[0], parts[1], int(parts[2])
-        
         user = get_user(user_id)
+
+        if not user:
+            return False, "User not found."
+
+        unlimited = bool(
+            user.get("unlimited_access", False)
+        )
+
+        stars = int(
+            user.get("stars", 0)
+        )
+
+        unlocked = user.get(
+            "unlocked_sections",
+            {}
+        )
+
+        if not isinstance(unlocked, dict):
+            unlocked = {}
+
+        if unlocked.get(section, False):
+            return True, "Already unlocked."
+
+        if not unlimited and stars < STARS_REQUIRED:
+            return (
+                False,
+                (
+                    "❌ <b>Not enough Stars</b>\n\n"
+                    f"⭐ Current: <b>{stars}</b>\n"
+                    f"⭐ Required: <b>{STARS_REQUIRED}</b>\n\n"
+                    "🔗 My Link se friends invite karein."
+                )
+            )
+
+        new_stars = (
+            stars
+            if unlimited
+            else stars - STARS_REQUIRED
+        )
+
+        update = {
+            "stars": new_stars,
+            f"unlocked_sections/{section}": True
+        }
+
+        if firebase_patch(
+            f"users/{user_id}",
+            update
+        ):
+            return True, (
+                "🎉 <b>Section Unlocked!</b>\n\n"
+                f"⭐ Remaining Stars: <b>{new_stars}</b>"
+            )
+
+    except Exception as exc:
+        logger.error(
+            "unlock_section error: %s",
+            exc
+        )
+
+    return False, "⚠️ Unlock failed. Please try again."
+
+
+# ============================================================
+# APP DELIVERY
+# ============================================================
+
+AUTHORIZED_FILES = {
+    "carrom": "AimAi-2.apk",
+}
+
+
+def send_file(user_id, filename, caption):
+    try:
+        if not os.path.isfile(filename):
+            bot.send_message(
+                user_id,
+                (
+                    "⚠️ File server par available nahi hai.\n\n"
+                    f"<code>{filename}</code>"
+                )
+            )
+            return False
+
+        with open(
+            filename,
+            "rb"
+        ) as file_object:
+
+            bot.send_document(
+                user_id,
+                file_object,
+                caption=caption
+            )
+
+        return True
+
+    except Exception as exc:
+        logger.error(
+            "send_file error: %s",
+            exc
+        )
+
+        return False
+
+
+# ============================================================
+# GAME / APP SECTIONS
+# ============================================================
+
+def show_section(user_id, section):
+    try:
+        if not verified_user(user_id):
+            bot.send_message(
+                user_id,
+                "⚠️ Pehle verification complete karein."
+            )
+            return
+
+        user = get_user(user_id)
+
         if not user:
             return
 
-        is_unlimited = user.get("unlimited_access", False)
-        stars = 999999 if is_unlimited else int(user.get("stars", 0))
-        
-        category = GAMES_DATA.get(cat_key, {})
-        apps = category.get("apps", [])
-        if idx_str >= len(apps):
-            return
-            
-        app_info = apps[idx_str]
-        fname = app_info["filename"]
-        unlocked_dict = user.get("unlocked_apps", {})
+        stars = int(
+            user.get("stars", 0)
+        )
 
-        if action == "unlock":
-            if unlocked_dict.get(fname, False):
-                bot.send_message(user_id, "✅ Yeh app pehle se unlocked hai! Niche download button dabayein.")
-                return
+        unlimited = bool(
+            user.get("unlimited_access", False)
+        )
 
-            if stars < STARS_REQUIRED_PER_APP:
-                bot.send_message(
-                    user_id,
-                    "❌ <b>Insufficient Stars!</b>\n\n⭐ Aapke Stars: <b>" + str(stars) + "</b>\nRequired Stars: <b>5</b> (1 App = 5 Stars)\n\n💡 Aur stars earn karne ke liye apni <b>My Link</b> share karke doston ko invite karein (1 Refer = 1 Star)!",
-                    parse_mode="HTML"
+        unlocked = user.get(
+            "unlocked_sections",
+            {}
+        )
+
+        is_unlocked = (
+            unlimited
+            or unlocked.get(section, False)
+        )
+
+        if not is_unlocked:
+            keyboard = types.InlineKeyboardMarkup()
+
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    f"🔓 Unlock — {STARS_REQUIRED} ⭐",
+                    callback_data=f"section_unlock:{section}"
                 )
-                return
-
-            new_stars = stars - STARS_REQUIRED_PER_APP if not is_unlimited else stars
-            unlocked_dict[fname] = True
-
-            firebase_patch("users/" + str(user_id), {
-                "stars": new_stars,
-                "unlocked_apps/" + fname: True
-            })
+            )
 
             bot.send_message(
                 user_id,
-                "🎉 <b>Successfully Unlocked " + app_info['name'] + "!</b>\n\n⭐ Remaining Stars: <b>" + str(new_stars) + "</b>\n\nAb aap iski APK file niche se download kar sakte hain 👇",
-                parse_mode="HTML"
+                (
+                    f"🔒 <b>{section.title()} Section Locked</b>\n\n"
+                    f"⭐ Your Stars: <b>{stars}</b>\n"
+                    f"⭐ Required: <b>{STARS_REQUIRED}</b>\n\n"
+                    "Unlock karne ke liye button dabayein."
+                ),
+                reply_markup=keyboard
             )
+            return
 
-            if cat_key == "freefire" and "proxy" in fname.lower():
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
-                if not sent:
-                    bot.send_message(user_id, "📥 <b>MediaFire Link:</b>\n👉 " + FREE_FIRE_MEDIAFIRE, parse_mode="HTML", disable_web_page_preview=True)
-            elif cat_key == "carrom":
-                sent = send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
-            else:
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
-                if not sent:
-                    bot.send_message(user_id, "⚠️ File server par nahi mili (`" + fname + "`). GitHub par upload karna na bhulein!")
-
-        elif action == "dl":
-            if not unlocked_dict.get(fname, False) and not is_unlimited:
-                bot.send_message(user_id, "🔒 Pehle is app ko unlock karne ke liye <b>Unlock</b> button dabayein (Cost: 5 Stars)!", parse_mode="HTML")
-                return
-
-            if cat_key == "carrom":
-                send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
-            else:
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
-                if not
+        if section == "freefire":
+            bot.send_message(
+                user_id,
+                (
+                    "🔥 <b>Free Fire Section Unlocked</b>\n\n"
+                    f"👉 <a href='{FREE_
