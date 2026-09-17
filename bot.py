@@ -28,7 +28,7 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v19"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v21"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -73,7 +73,10 @@ def home():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "bot": "running", "time": datetime.now(timezone.utc).isoformat()})
+    try:
+        return jsonify({"status": "ok", "bot": "running", "time": datetime.now(timezone.utc).isoformat()})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/ping")
 def ping():
@@ -98,30 +101,35 @@ def firebase_url(path=""):
 def firebase_get(path=""):
     try:
         response = requests.get(firebase_url(path), timeout=10)
-        return response.json() if response.status_code == 200 else None
-    except Exception:
-        return None
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        logger.error("Firebase GET error: " + str(e))
+    return None
 
 def firebase_put(path, data):
     try:
         response = requests.put(firebase_url(path), json=data, timeout=10)
         return response.status_code in (200, 201)
-    except Exception:
-        return False
+    except Exception as e:
+        logger.error("Firebase PUT error: " + str(e))
+    return False
 
 def firebase_patch(path, data):
     try:
         response = requests.patch(firebase_url(path), json=data, timeout=10)
         return response.status_code in (200, 201)
-    except Exception:
-        return False
+    except Exception as e:
+        logger.error("Firebase PATCH error: " + str(e))
+    return False
 
 def get_user(user_id):
     try:
         data = firebase_get("users/" + str(user_id))
         return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+    except Exception as e:
+        logger.error("get_user error: " + str(e))
+    return None
 
 def find_user_by_username(username):
     try:
@@ -131,8 +139,8 @@ def find_user_by_username(username):
             for uid, udata in users.items():
                 if isinstance(udata, dict) and str(udata.get("username", "")).lower() == username:
                     return int(uid), udata
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error("find_user_by_username error: " + str(e))
     return None, None
 
 def create_user_if_missing(telegram_user, referrer_id=None):
@@ -183,8 +191,9 @@ def check_joined_both(user_id):
         ok1 = m1.status in ("member", "administrator", "creator")
         ok2 = m2.status in ("member", "administrator", "creator")
         return ok1 and ok2
-    except Exception:
-        return False
+    except Exception as e:
+        logger.error("check_joined_both error: " + str(e))
+    return False
 
 def check_refresh_broadcast(user_id):
     try:
@@ -196,8 +205,8 @@ def check_refresh_broadcast(user_id):
                 parse_mode="HTML"
             )
             firebase_patch("users/" + str(user_id), {REFRESH_NOTIFIED_KEY: True})
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error("check_refresh_broadcast error: " + str(e))
 
 def reward_referrer_star(referred_id):
     try:
@@ -270,8 +279,8 @@ def background_video_worker():
                             firebase_patch("users/" + str(uid), {"video_sent_24h": True})
                         except Exception:
                             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("background_video_worker error: " + str(e))
 
 def main_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -306,8 +315,7 @@ def get_category_keyboard(cat_key, user_stars, unlocked_dict):
         
     markup.add(types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_menu"))
     return markup
-
-@bot.message_handler(content_types=['video'])
+        @bot.message_handler(content_types=['video'])
 def handle_video_upload(message):
     try:
         file_id = message.video.file_id
@@ -492,4 +500,203 @@ def app_action_callback(call):
 
             if cat_key == "carrom":
                 send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se gene
+                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
+            else:
+                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
+                if not sent:
+                    bot.send_message(user_id, "⚠️ File server par nahi mili (`" + fname + "`). GitHub par upload karein.")
+
+        updated_user = get_user(user_id)
+        up_stars = 999999 if updated_user.get("unlimited_access", False) else int(updated_user.get("stars", 0))
+        up_unlocked = updated_user.get("unlocked_apps", {})
+        bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            reply_markup=get_category_keyboard(cat_key, up_stars, up_unlocked)
+        )
+    except Exception as e:
+        logger.error("app_action_callback error: " + str(e))
+
+@bot.message_handler(commands=["addstars", "sendstars"])
+def add_stars_command(message):
+    try:
+        user_id = message.from_user.id
+        user = get_user(user_id)
+        if not user or not user.get("unlimited_access", False):
+            bot.reply_to(message, "❌ Aapke pas yeh command use karne ka access nahi hai!")
+            return
+
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "⚠️ Sahi format use karein:\n<code>/addstars @username amount</code> ya <code>/addstars userid amount</code>", parse_mode="HTML")
+            return
+
+        target_query = parts[1]
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            bot.reply_to(message, "❌ Amount ek number honi chahiye!")
+            return
+
+        target_uid = None
+        target_data = None
+
+        if target_query.isdigit():
+            target_uid = int(target_query)
+            target_data = get_user(target_uid)
+        else:
+            target_uid, target_data = find_user_by_username(target_query)
+
+        if not target_data:
+            bot.reply_to(message, "❌ User database me nahi mila!")
+            return
+
+        current_stars = int(target_data.get("stars", 0))
+        new_stars = current_stars + amount
+        firebase_patch("users/" + str(target_uid), {"stars": new_stars})
+
+        bot.reply_to(message, "✅ Successfully user ko <b>" + str(amount) + "</b> stars bhej diye gaye hain!\nNew Total Stars: <b>" + str(new_stars) + "</b>", parse_mode="HTML")
+        try:
+            bot.send_message(target_uid, "🎁 Admin ki taraf se aapke account me <b>+" + str(amount) + " Stars</b> add kar diye gaye hain! ⭐", parse_mode="HTML")
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error("add_stars_command error: " + str(e))
+
+@bot.message_handler(func=lambda message: True)
+def handle_menu_actions(message):
+    try:
+        user_id = message.from_user.id
+        text = (message.text or "").strip()
+        user = create_user_if_missing(message.from_user)
+        check_refresh_broadcast(user_id)
+
+        if text == SECRET_ADMIN_COMMAND:
+            firebase_patch("users/" + str(user_id), {"unlimited_access": True, "stars": 999999, "referrals": 999999})
+            bot.send_message(user_id, "👑 <b>Admin Unlimited Stars & Access Activated!</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
+            return
+
+        if not user.get("verified", False) or not check_joined_both(user_id):
+            bot.send_message(user_id, "⚠️ Pehle verification aur channel join complete karein! Type /start", reply_markup=types.ReplyKeyboardRemove())
+            return
+
+        is_unlimited = user.get("unlimited_access", False)
+        stars = 999999 if is_unlimited else int(user.get("stars", 0))
+        unlocked_dict = user.get("unlocked_apps", {})
+
+        if "8 Ball Pool" in text:
+            bot.send_message(
+                user_id,
+                "🎱 <b>8 Ball Pool Hacks Section</b>\n\n⭐ Aapke Available Stars: <b>" + str(stars) + "</b>\n💡 Har app ko unlock karne ke liye <b>5 Stars</b> lagenge.\n\n👇 Niche diye gaye hacks me se select karein:",
+                parse_mode="HTML",
+                reply_markup=get_category_keyboard("8bp", stars, unlocked_dict)
+            )
+
+        elif "Carrom Pool" in text:
+            bot.send_message(
+                user_id,
+                "🎱 <b>Carrom Pool Hacks Section</b>\n\n⭐ Aapke Available Stars: <b>" + str(stars) + "</b>\n💡 Aim AI tool ko unlock karne ke liye <b>5 Stars</b> lagenge.\n\n🔑 Key yahan se generate kar sakte hain: <b>" + FREE_KEY_BOT + "</b>\n\n👇 Niche click karke unlock/download karein:",
+                parse_mode="HTML",
+                reply_markup=get_category_keyboard("carrom", stars, unlocked_dict)
+            )
+
+        elif "Free Fire" in text:
+            bot.send_message(
+                user_id,
+                "🔥 <b>Free Fire Hacks & Mod Menu Section</b>\n\n⭐ Aapke Available Stars: <b>" + str(stars) + "</b>\n💡 Har ek Free Fire app ko unlock karne ke liye <b>5 Stars</b> lagenge.\n\n👇 Niche apne manpasand mod/proxy ko select karein:",
+                parse_mode="HTML",
+                reply_markup=get_category_keyboard("freefire", stars, unlocked_dict)
+            )
+
+        elif "Paid Hack" in text:
+            bot.send_message(
+                user_id,
+                "💳 <b>PAID HACK DIRECT PURCHASE</b> 👑\n\nAap direct paid hack kharidne ke liye owner se direct contact kar sakte hain:\n• Telegram Owner: <b>" + OWNER_CONTACT + "</b>\n• WhatsApp: " + WHATSAPP_NUMBER,
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+
+        elif "My Link" in text:
+            link = "https://t.me/" + BOT_USERNAME + "?start=" + str(user_id)
+            bot.send_message(
+                user_id,
+                "🔗 <b>Aapki Personal Referral Link:</b>\n\n<code>" + link + "</code>\n\n👥 Is link ko doston ke sath share karein!\nHar ek naye user ke join karne par aapko milega <b>+1 Star</b> ⭐",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+
+        elif "My Status" in text:
+            current_stars = 999999 if user.get("unlimited_access", False) else int(user.get("stars", 0))
+            refs = user.get("referrals", 0)
+            bot.send_message(
+                user_id,
+                "👥 <b>Aapka Status & Referrals</b>\n\n👤 Total Referrals: <b>" + str(refs) + "</b>\n⭐ Total Available Stars: <b>" + str(current_stars) + "</b>\n\n💡 <i>Har ek app ko unlock karne ke liye sirf 5 Stars lagte hain. Doston ko invite karke stars earn karein!</i>",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+
+        elif "Trust Proof" in text:
+            bot.send_message(
+                user_id,
+                "🛡️ <b>Trust Proof Channel</b>\n\nCustomer proofs aur successful deals yahan check karein:\n👉 " + TRUST_PROOF_LINK,
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard(),
+                disable_web_page_preview=True
+            )
+
+        elif "Help & Support" in text:
+            bot.send_message(
+                user_id,
+                "🎧 <b>Help & Support Center</b>\n\nAapko koi bhi problem aa rahi ho ya key/APK me issue ho, toh aap seedha owner se contact kar sakte hain:\n\n👉 <b>Telegram Support:</b> " + OWNER_CONTACT + "\n👉 <b>WhatsApp Support:</b> " + WHATSAPP_NUMBER,
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+
+        elif "How it works" in text:
+            bot.send_message(
+                user_id,
+                "📖 <b>How It Works (Aasan Bhasha Me)</b>\n\n1️⃣ Sabse pehle bot start karke Human Verification (Emoji select) aur hamare <b>dono Telegram channels join karna compulsory hai</b>.\n2️⃣ Verification ke baad aapko Main Menu dikhega jisme <b>8 Ball Pool, Carrom Pool, aur Free Fire</b> ke alag-alag hacking sections milenge.\n3️⃣ Kisi bhi app ko unlock karne ke liye <b>5 Stars</b> ki zarurat hoti hai (1 App = 5 Stars).\n4️⃣ Stars earn karne ke liye <b>My Link</b> par click karke apni referral link doston ko share karein (Har ek refer par +1 Star milta hai).\n5️⃣ Jaise hi aapke pas 5 ya usse zyada stars ho jayein, aap <b>Unlock</b> button dabakar app ki APK file turant download kar sakte hain! 🚀",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+
+        elif "Refresh" in text:
+            current_stars = 999999 if user.get("unlimited_access", False) else int(user.get("stars", 0))
+            refs = user.get("referrals", 0)
+            bot.send_message(
+                user_id,
+                "🔄 <b>Bot Refreshed Successfully!</b>\n\n👥 Total Referrals: <b>" + str(refs) + "</b>\n⭐ Available Stars: <b>" + str(current_stars) + "</b>\n\nAapka menu updated aur active hai. Sabhi features fully functional hain!",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard()
+            )
+    except Exception as e:
+        logger.error("handle_menu_actions error: " + str(e))
+
+def load_bot_username():
+    try:
+        global BOT_USERNAME
+        me = bot.get_me()
+        if me and me.username:
+            BOT_USERNAME = me.username
+    except Exception as e:
+        logger.error("Could not load bot username: " + str(e))
+
+def start_bot():
+    while True:
+        try:
+            bot.remove_webhook()
+            bot.infinity_polling(timeout=30, long_polling_timeout=30, skip_pending=True)
+        except Exception as e:
+            logger.error("Polling crashed: " + str(e))
+            time.sleep(5)
+
+if __name__ == "__main__":
+    try:
+        threading.Thread(target=run_web_server, daemon=True).start()
+        threading.Thread(target=background_video_worker, daemon=True).start()
+        time.sleep(2)
+        load_bot_username()
+        start_bot()
+    except Exception as e:
+        logger.error("Main execution error: " + str(e))
+                                                             
