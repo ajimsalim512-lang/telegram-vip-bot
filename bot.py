@@ -28,7 +28,7 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v21"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v23"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -315,7 +315,7 @@ def get_category_keyboard(cat_key, user_stars, unlocked_dict):
         
     markup.add(types.InlineKeyboardButton("⬅️ Back to Main Menu", callback_data="back_menu"))
     return markup
-        @bot.message_handler(content_types=['video'])
+@bot.message_handler(content_types=['video'])
 def handle_video_upload(message):
     try:
         file_id = message.video.file_id
@@ -699,4 +699,4 @@ if __name__ == "__main__":
         start_bot()
     except Exception as e:
         logger.error("Main execution error: " + str(e))
-                                                             
+        
