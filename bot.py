@@ -427,7 +427,6 @@ def back_menu_callback(call):
         bot.send_message(user_id, "📌 <b>Main Menu:</b>", parse_mode="HTML", reply_markup=main_menu_keyboard())
     except Exception as e:
         logger.error("back_menu_callback error: " + str(e))
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("unlock:") or call.data.startswith("dl:"))
 def app_action_callback(call):
     try:
@@ -456,13 +455,13 @@ def app_action_callback(call):
 
         if action == "unlock":
             if unlocked_dict.get(fname, False):
-                bot.send_message(user_id, "✅ Yeh app pehle se unlocked hai! Niche download button dabayein.")
+                bot.send_message(user_id, "Yeh app pehle se unlocked hai! Niche download button dabayein.")
                 return
 
             if stars < STARS_REQUIRED_PER_APP:
                 bot.send_message(
                     user_id,
-                    "❌ <b>Insufficient Stars!</b>\n\n⭐ Aapke Stars: <b>" + str(stars) + "</b>\nRequired Stars: <b>5</b> (1 App = 5 Stars)\n\n💡 Aur stars earn karne ke liye apni <b>My Link</b> share karke doston ko invite karein (1 Refer = 1 Star)!",
+                    "❌ Insufficient Stars!\n\nAapke Stars: " + str(stars) + "\nRequired Stars: 5 (1 App = 5 Stars)\n\nAur stars earn karne ke liye apni My Link share karein!",
                     parse_mode="HTML"
                 )
                 return
@@ -477,37 +476,45 @@ def app_action_callback(call):
 
             bot.send_message(
                 user_id,
-                "🎉 <b>Successfully Unlocked " + app_info['name'] + "!</b>\n\n⭐ Remaining Stars: <b>" + str(new_stars) + "</b>\n\nAb aap iski APK file niche se download kar sakte hain 👇",
+                "🎉 Successfully Unlocked " + app_info['name'] + "!\n\nRemaining Stars: " + str(new_stars) + "\n\nAb aap iski APK file niche se download kar sakte hain 👇",
                 parse_mode="HTML"
             )
 
             if cat_key == "freefire" and "proxy" in fname.lower():
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
+                sent = send_local_apk(user_id, fname, "📥 " + app_info['name'] + " APK File:")
                 if not sent:
-                    bot.send_message(user_id, "📥 <b>MediaFire Link:</b>\n👉 " + FREE_FIRE_MEDIAFIRE, parse_mode="HTML", disable_web_page_preview=True)
+                    bot.send_message(user_id, "📥 MediaFire Link:\n👉 " + FREE_FIRE_MEDIAFIRE, parse_mode="HTML", disable_web_page_preview=True)
             elif cat_key == "carrom":
-                sent = send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
+                sent = send_local_apk(user_id, CARROM_FILENAME, "📥 Carrom Aim AI APK File:")
+                bot.send_message(user_id, "🔑 Key yahan se generate karein: " + FREE_KEY_BOT, parse_mode="HTML")
             else:
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
+                sent = send_local_apk(user_id, fname, "📥 " + app_info['name'] + " APK File:")
                 if not sent:
-                    bot.send_message(user_id, "⚠️ File server par nahi mili (`" + fname + "`). GitHub par upload karna na bhulein!")
+                    bot.send_message(user_id, "⚠️ File server par nahi mili. GitHub par upload karna na bhulein!")
 
         elif action == "dl":
             if not unlocked_dict.get(fname, False) and not is_unlimited:
-                bot.send_message(user_id, "🔒 Pehle is app ko unlock karne ke liye <b>Unlock</b> button dabayein (Cost: 5 Stars)!", parse_mode="HTML")
+                bot.send_message(user_id, "🔒 Pehle is app ko unlock karne ke liye Unlock button dabayein (Cost: 5 Stars)!", parse_mode="HTML")
                 return
 
             if cat_key == "carrom":
-                send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
+                send_local_apk(user_id, CARROM_FILENAME, "📥 Carrom Aim AI APK File:")
+                bot.send_message(user_id, "🔑 Key yahan se generate karein: " + FREE_KEY_BOT, parse_mode="HTML")
             else:
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
+                sent = send_local_apk(user_id, fname, "📥 " + app_info['name'] + " APK File:")
                 if not sent:
-                    bot.send_message(user_id, "⚠️ File server par nahi mili (`" + fname + "`). GitHub par upload karein.")
+                    bot.send_message(user_id, "⚠️ File server par nahi mili. GitHub par upload karein.")
 
         updated_user = get_user(user_id)
         up_stars = 999999 if updated_user.get("unlimited_access", False) else int(updated_user.get("stars", 0))
+        up_unlocked = updated_user.get("unlocked_apps", {})
+        bot.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            reply_markup=get_category_keyboard(cat_key, up_stars, up_unlocked)
+        )
+    except Exception as e:
+        logger.error("app_action_callback error: " + str(e))
         up_unlocked = updated_user.get("unlocked_apps", {})
         bot.edit_message_reply_markup(
             chat_id=user_id,
