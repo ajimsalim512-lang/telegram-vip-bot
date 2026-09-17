@@ -1,7 +1,6 @@
 import os
 import time
 import random
-import string
 import threading
 import logging
 from datetime import datetime, timezone
@@ -29,7 +28,7 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v16"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v17"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -487,3 +486,4 @@ def app_action_callback(call):
                 bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
             else:
                 sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
+              
