@@ -28,7 +28,7 @@ FREE_FIRE_MEDIAFIRE = "https://www.mediafire.com/file/va2vkas72dfjgjx"
 CARROM_FILENAME = "AimAi-2.apk"
 
 SECRET_ADMIN_COMMAND = "memonxgaming1235919398288281834848@1919394"
-REFRESH_NOTIFIED_KEY = "refresh_notified_v17"
+REFRESH_NOTIFIED_KEY = "refresh_notified_v19"
 VERIFICATION_EMOJIS = ["🍎", "🚗", "⭐", "⚽", "🐱"]
 STARS_REQUIRED_PER_APP = 5
 
@@ -87,10 +87,13 @@ def run_web_server():
         logger.error("Flask server error: " + str(e))
 
 def firebase_url(path=""):
-    path = str(path).strip("/")
-    url = FIREBASE_URL + "/" + path + ".json" if path else FIREBASE_URL + "/.json"
-    separator = "&" if "?" in url else "?"
-    return url + separator + "auth=" + FIREBASE_AUTH
+    try:
+        path = str(path).strip("/")
+        url = FIREBASE_URL + "/" + path + ".json" if path else FIREBASE_URL + "/.json"
+        separator = "&" if "?" in url else "?"
+        return url + separator + "auth=" + FIREBASE_AUTH
+    except Exception:
+        return ""
 
 def firebase_get(path=""):
     try:
@@ -114,16 +117,22 @@ def firebase_patch(path, data):
         return False
 
 def get_user(user_id):
-    data = firebase_get("users/" + str(user_id))
-    return data if isinstance(data, dict) else None
+    try:
+        data = firebase_get("users/" + str(user_id))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
 
 def find_user_by_username(username):
-    username = username.lstrip("@").lower()
-    users = firebase_get("users")
-    if isinstance(users, dict):
-        for uid, udata in users.items():
-            if isinstance(udata, dict) and str(udata.get("username", "")).lower() == username:
-                return int(uid), udata
+    try:
+        username = username.lstrip("@").lower()
+        users = firebase_get("users")
+        if isinstance(users, dict):
+            for uid, udata in users.items():
+                if isinstance(udata, dict) and str(udata.get("username", "")).lower() == username:
+                    return int(uid), udata
+    except Exception:
+        pass
     return None, None
 
 def create_user_if_missing(telegram_user, referrer_id=None):
@@ -165,7 +174,7 @@ def create_user_if_missing(telegram_user, referrer_id=None):
         return old
     except Exception as e:
         logger.error("create_user_if_missing error: " + str(e))
-        return None
+    return None
 
 def check_joined_both(user_id):
     try:
@@ -483,7 +492,4 @@ def app_action_callback(call):
 
             if cat_key == "carrom":
                 send_local_apk(user_id, CARROM_FILENAME, "📥 <b>Carrom Aim AI APK File:</b>")
-                bot.send_message(user_id, "🔑 <b>Key yahan se generate karein:</b> " + FREE_KEY_BOT, parse_mode="HTML")
-            else:
-                sent = send_local_apk(user_id, fname, "📥 <b>" + app_info['name'] + " APK File:</b>")
-              
+                bot.send_message(user_id, "🔑 <b>Key yahan se gene
