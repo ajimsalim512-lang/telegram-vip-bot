@@ -309,7 +309,7 @@ def get_category_keyboard(cat_key, user_stars, unlocked_dict):
             text = "📥 Download " + app['name'] + " (Unlocked ✅)"
             cb = "dl:" + cat_key + ":" + str(idx)
         else:
-            text = "🔓 Unlock " + app['name'] + " (Cost: 5 ⭐)"
+            text = "🔓 Unlock " + app['name'] + " (Cost: 1 ⭐)"
             cb = "unlock:" + cat_key + ":" + str(idx)
         markup.add(types.InlineKeyboardButton(text, callback_data=cb))
         
@@ -461,7 +461,7 @@ def app_action_callback(call):
             if stars < STARS_REQUIRED_PER_APP:
                 bot.send_message(
                     user_id,
-                    "❌ Insufficient Stars!\n\nAapke Stars: " + str(stars) + "\nRequired Stars: 5 (1 App = 5 Stars)\n\nAur stars earn karne ke liye apni My Link share karein!",
+                    "❌ Insufficient Stars!\n\nAapke Stars: " + str(stars) + "\nRequired Stars: 1 (1 App = 1 Stars)\n\nAur stars earn karne ke liye apni My Link share karein!",
                     parse_mode="HTML"
                 )
                 return
